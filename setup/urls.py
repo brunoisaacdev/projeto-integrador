@@ -20,6 +20,7 @@ from core.views import sobre, home
 
 urlpatterns = [
     path('admin/', admin.site.urls), # deixa como está
+    path('', home, name='home'),
     path('sobre/', sobre, name='sobre'),
     path('home/', home, name='home')
 ]

@@ -1,0 +1,42 @@
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bootstrap demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <h1> {{ titulo }}</h1>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Laboratório</th>
+                <th scope="col">Equipamento</th>
+                <th scope="col">Problema</th>
+                <th scope="col">Prioridade</th>
+            </tr>
+        </thead>
+        <tbody class="table-group-divider">
+            {% for chamado in chamados %}
+            <tr>
+                <th scope="row">{{chamado.id}}</th>
+                <td>{{chamado.laboratorio }}</td>
+                <td>{{chamado.equipamento }}</td>
+                <td>{{chamado.problema }}</td>
+                {% if chamado.prioridade == 'Alta' %}
+                <td class="table-danger">{{chamado.prioridade }}</td>
+                {%else%}
+                <td>{{chamado.prioridade }}</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- <p>Chamados: {{ chamados }}</p> -->
+
+    <button class="btn btn-warning"> Clique aqui </button>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+</body>
