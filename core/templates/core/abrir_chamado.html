@@ -1,0 +1,30 @@
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abrir Chamado</title>
+</head>
+
+<body>
+    {% for chamado in chamados %}
+        <div>
+            <span style="color: red;">
+                {{ chamado.descricao }}
+            </span>
+            <span>
+                {{ chamado.status }}
+            </span>
+        </div>
+    {% endfor %}
+
+    <h1>Abrir Chamado</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        <label>Descrição:</label>
+        <input name="descricao">
+        <button type="submit">Salvar</button>
+    </form>
+
+</body>

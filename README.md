@@ -165,7 +165,15 @@ Esse usuário permitirá acesso ao painel administrativo do Django.
 
 ---
 
-## 📌 Observações
+# 📝 Instruções para Criar um Formulário
 
-- Este projeto é didático e serve como base para evolução nas próximas aulas.
-- Recomenda-se versionar o ambiente (`requirements.txt`) futuramente.
+Siga os passos abaixo para implementar um formulário no projeto:
+
+## 1. Criar o formulário
+- Crie o arquivo `.html` do formulário na pasta apropriada do projeto.
+
+## 2. Definir a lógica
+- No arquivo `views.py` do app em que você está trabalhando, implemente a lógica necessária para processar o formulário.
+
+## 3. Definir a rota
+- Configure a rota no arquivo `setup/urls.py`, garantindo que o formulário esteja acessível pela URL correta.
