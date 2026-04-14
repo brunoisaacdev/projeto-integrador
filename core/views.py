@@ -1,10 +1,8 @@
 from django.shortcuts import redirect, render
 from django.http import HttpResponse
+from core.models import Agenda
 
 nomeLoja = "LigaSport"
-chamados = [{'descricao': 'Não consigo acessar minha conta', 'status': 'Aberto'},
-            {'descricao': 'Produto com defeito', 'status': 'Fechado'},
-            {'descricao': 'Dúvida sobre o produto', 'status': 'Em andamento'}]
 
 def sobre(request):
     return render(request, 'core/sobre.html', {'nome_loja': nomeLoja})
@@ -12,17 +10,14 @@ def sobre(request):
 def home(request):
     return render(request, 'core/home.html', {'nome_loja': nomeLoja})
 
-def abrir_chamado(request):
+def listar_eventos(request):
     if request.method == 'POST':
         descricao =  request.POST.get('descricao')
         print( descricao )
-        chamados.append(
-            {
-                'descricao': descricao,
-                'status': 'Aberto'
-            }
-        )
-        return redirect('abrir_chamado')
+
+        Agenda.objects.create( descricao = descricao, dthr_evento = '2026-01-01 11:11:11')
+        return redirect('listar_eventos')
 
     elif request.method == 'GET':
-        return render(request, 'core/abrir_chamado.html', {'chamados': chamados})
+        listaEventos = Agenda.objects.all()
+        return render(request, 'core/evento.html', {'eventos': listaEventos})

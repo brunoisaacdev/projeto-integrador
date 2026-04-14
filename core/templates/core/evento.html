@@ -7,18 +7,15 @@
 </head>
 
 <body>
-    {% for chamado in chamados %}
+    {% for evento in eventos %}
         <div>
             <span style="color: red;">
-                {{ chamado.descricao }}
-            </span>
-            <span>
-                {{ chamado.status }}
+                {{ evento.descricao }}
             </span>
         </div>
     {% endfor %}
 
-    <h1>Abrir Chamado</h1>
+    <h1>Criar Evento</h1>
 
     <form method="post">
         {% csrf_token %}
