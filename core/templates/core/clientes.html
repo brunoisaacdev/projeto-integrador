@@ -1,0 +1,63 @@
+{% extends "core/base.html" %}
+
+{% block title %}Clientes | Premium Barbearia{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Clientes</h1>
+    <p class="page-subtitle">Cadastro e consulta de clientes</p>
+  </div>
+  <a href="{% url 'cliente_novo' %}" class="btn btn-primary">+ Novo cliente</a>
+</div>
+
+<div class="card">
+  <form class="search-bar" method="get">
+    <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por nome, telefone ou e-mail" />
+    <button type="submit" class="btn btn-outline">Buscar</button>
+    {% if busca %}
+      <a href="{% url 'cliente_list' %}" class="btn btn-outline">Limpar</a>
+    {% endif %}
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Telefone</th>
+          <th>E-mail</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cliente in clientes %}
+        <tr>
+          <td>{{ cliente.nome }}</td>
+          <td>{{ cliente.telefone }}</td>
+          <td>{{ cliente.email|default:"-" }}</td>
+          <td>
+            {% if cliente.ativo %}
+              <span class="badge badge-success">Ativo</span>
+            {% else %}
+              <span class="badge badge-muted">Inativo</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'cliente_editar' cliente.pk %}" class="btn btn-outline btn-sm">Editar</a>
+            <a href="{% url 'cliente_excluir' cliente.pk %}" class="btn btn-danger btn-sm">Excluir</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5">
+            <div class="empty-state">Nenhum cliente encontrado.</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

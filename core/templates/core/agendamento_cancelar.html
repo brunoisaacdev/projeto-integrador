@@ -1,0 +1,30 @@
+{% extends "core/base.html" %}
+
+{% block title %}Cancelar agendamento | Premium Barbearia{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Cancelar agendamento</h1>
+    <p class="page-subtitle">{{ agendamento.cliente.nome }} - {{ agendamento.inicio|date:"d/m/Y H:i" }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <p class="form-hint">
+    Serviço: {{ agendamento.servico.nome }} com {{ agendamento.profissional.nome }}.
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-grid">
+      {% include "core/_form_field.html" with field=form.motivo full=True only %}
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-danger">Confirmar cancelamento</button>
+      <a href="{% url 'agendamento_list' %}" class="btn btn-outline">Voltar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

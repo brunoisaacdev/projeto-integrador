@@ -1,0 +1,25 @@
+{% extends "core/base.html" %}
+
+{% block title %}Confirmar exclusão | Premium Barbearia{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Confirmar exclusão</h1>
+    <p class="page-subtitle">Esta ação não pode ser desfeita</p>
+  </div>
+</div>
+
+<div class="card">
+  <p>Deseja excluir este {{ tipo }}?</p>
+  <p class="form-hint">{{ obj }}</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-actions">
+      <button type="submit" class="btn btn-danger">Excluir</button>
+      <a href="{% url cancel_url %}" class="btn btn-outline">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

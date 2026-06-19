@@ -1,0 +1,94 @@
+{% extends "core/base.html" %}
+
+{% block title %}Agendamentos | Premium Barbearia{% endblock %}
+
+{% block content %}
+<div class="schedule-container">
+  <div class="schedule-header">
+    <div>
+      <h1 class="page-title">Agendamentos</h1>
+      <p class="page-subtitle">Visualize e gerencie os agendamentos</p>
+    </div>
+    <div class="schedule-header-actions">
+      <a href="{% url 'agendar' %}" class="btn btn-primary">Agendar</a>
+    </div>
+  </div>
+
+  <form class="schedule-filters" method="get">
+    <div class="form-group">
+      <label for="{{ filtro.data.id_for_label }}">Data</label>
+      {{ filtro.data }}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ filtro.cliente.id_for_label }}">Cliente</label>
+      {{ filtro.cliente }}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ filtro.profissional.id_for_label }}">Profissional</label>
+      {{ filtro.profissional }}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ filtro.status.id_for_label }}">Status</label>
+      {{ filtro.status }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Filtrar</button>
+    <a href="{% url 'agendamento_list' %}" class="btn btn-outline">Limpar</a>
+  </form>
+
+  <section class="schedule-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data/Hora</th>
+            <th>Cliente</th>
+            <th>Serviço</th>
+            <th>Profissional</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for agendamento in agendamentos %}
+            <tr>
+              <td>{{ agendamento.inicio|date:"d/m/Y H:i" }}</td>
+              <td>{{ agendamento.cliente.nome }}</td>
+              <td>{{ agendamento.servico.nome }}</td>
+              <td>{{ agendamento.profissional.nome }}</td>
+              <td>
+                {% if agendamento.status == "cancelado" %}
+                  <span class="badge badge-danger">{{ agendamento.get_status_display }}</span>
+                {% elif agendamento.status == "concluido" %}
+                  <span class="badge badge-success">{{ agendamento.get_status_display }}</span>
+                {% else %}
+                  <span class="badge badge-warning">{{ agendamento.get_status_display }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if agendamento.status != "cancelado" %}
+                  <div class="actions">
+                    <a href="{% url 'agendamento_editar' agendamento.pk %}" class="btn btn-outline btn-sm">Editar</a>
+                    <a href="{% url 'agendamento_cancelar' agendamento.pk %}" class="btn btn-danger btn-sm">Cancelar</a>
+                  </div>
+                {% else %}
+                  <span class="muted-text">Cancelado</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6">
+                <div class="empty-state">Nenhum agendamento encontrado.</div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

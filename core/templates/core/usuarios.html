@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Usuários | Premium Barbearia</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-logo">P</div>
+          <div>
+            <div class="brand-name">PREMIUM</div>
+            <div class="brand-sub">Barbearia</div>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="dashboard.html" class="nav-item">Dashboard</a>
+          <a href="agendamentos.html" class="nav-item">Agendamentos</a>
+          <a href="clientes.html" class="nav-item">Clientes</a>
+          <div class="nav-section">Administração</div>
+          <a href="servicos.html" class="nav-item">Serviços</a>
+          <a href="profissionais.html" class="nav-item">Profissionais</a>
+          <a href="usuarios.html" class="nav-item active">Usuários</a>
+        </nav>
+        <div class="sidebar-footer">
+          <div>Administrador</div>
+          <a href="login.html" class="login-link">Sair</a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Usuários</h1>
+            <p class="page-subtitle">Contas com acesso ao sistema</p>
+          </div>
+          <a href="usuario_form.html" class="btn btn-primary">+ Novo usuário</a>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Usuário</th>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Perfil</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>admin</td>
+                  <td>Administrador</td>
+                  <td>admin@premium.com</td>
+                  <td><span class="badge badge-primary">Administrador</span></td>
+                  <td><span class="badge badge-success">Ativo</span></td>
+                  <td>
+                    <a href="usuario_form.html" class="btn btn-outline btn-sm">Editar</a>
+                    <a href="confirmar_exclusao.html" class="btn btn-danger btn-sm">Excluir</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td>recepcao</td>
+                  <td>Maria Recepção</td>
+                  <td>recepcao@premium.com</td>
+                  <td><span class="badge badge-muted">Comum</span></td>
+                  <td><span class="badge badge-success">Ativo</span></td>
+                  <td>
+                    <a href="usuario_form.html" class="btn btn-outline btn-sm">Editar</a>
+                    <a href="confirmar_exclusao.html" class="btn btn-danger btn-sm">Excluir</a>
+                  </td>
+                </tr>
+                <!-- Estado vazio:
+                <tr><td colspan="6"><div class="empty-state">Nenhum usuário cadastrado ainda</div></td></tr>
+                -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

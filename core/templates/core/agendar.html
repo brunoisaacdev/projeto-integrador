@@ -1,0 +1,268 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agendar Horário | Premium Barbearia</title>
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=8" />
+  </head>
+  <body class="appointments-page">
+    <main class="appointments-shell appointments-shell-narrow">
+      <header class="appointments-hero client-appointment-hero">
+        <div class="appointments-brand">
+          <div class="brand-logo">P</div>
+          <div>
+            <div class="brand-name">PREMIUM</div>
+            <div class="brand-sub">Barbearia</div>
+          </div>
+        </div>
+        <div class="appointments-heading">
+          <h1>Agende seu horário</h1>
+          <p>Escolha uma opção disponível no banco de dados.</p>
+        </div>
+        <div class="appointments-actions">
+          {% if request.user.is_staff %}
+            <a href="{% url 'agendamento_list' %}" class="btn btn-outline">Agendamentos</a>
+          {% endif %}
+          <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline">Sair</button>
+          </form>
+        </div>
+      </header>
+
+      {% if messages %}
+        <div class="appointments-messages">
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" class="appointment-maker client-appointment-form" id="appointment-form">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <section class="appointment-card client-card">
+          <div class="appointment-card-title">
+            <span class="appointment-icon">1</span>
+            <div>
+              <h2>Cliente</h2>
+              <p>O agendamento será feito para o usuário logado</p>
+            </div>
+          </div>
+          <div class="logged-client">
+            <div class="logged-client-avatar">{{ cliente.nome|first|upper }}</div>
+            <div>
+              <strong>{{ cliente.nome }}</strong>
+              <span>{{ cliente.email|default:request.user.username }}{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="appointment-card">
+          <div class="appointment-card-title">
+            <span class="appointment-icon">2</span>
+            <div>
+              <h2>Serviço</h2>
+              <p>Somente serviços ativos cadastrados</p>
+            </div>
+          </div>
+
+          <div class="booking-list">
+            {% for servico in servicos %}
+              <label class="booking-option service-option {% if servico_selecionado and servico.pk == servico_selecionado.pk %}active{% endif %}">
+                <input data-refresh type="radio" name="servico" value="{{ servico.pk }}" hidden {% if servico_selecionado and servico.pk == servico_selecionado.pk %}checked{% endif %} required />
+                <span>
+                  <strong>{{ servico.nome }}</strong>
+                  <small>{{ servico.duracao_minutos }} min{% if servico.descricao %} · {{ servico.descricao }}{% endif %}</small>
+                </span>
+                <b>R$ {{ servico.preco|floatformat:2 }}</b>
+              </label>
+            {% empty %}
+              <div class="empty-state compact">Nenhum serviço ativo cadastrado.</div>
+            {% endfor %}
+          </div>
+          {% for error in form.servico.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </section>
+
+        <section class="appointment-card">
+          <div class="appointment-card-title">
+            <span class="appointment-icon">3</span>
+            <div>
+              <h2>Profissional</h2>
+              <p>Somente profissionais ativos que atendem o serviço selecionado</p>
+            </div>
+          </div>
+
+          <div class="professional-list">
+            {% for profissional in profissionais %}
+              <label class="professional-option {% if profissional_selecionado and profissional.pk == profissional_selecionado.pk %}active{% endif %}">
+                <input data-refresh type="radio" name="profissional" value="{{ profissional.pk }}" hidden {% if profissional_selecionado and profissional.pk == profissional_selecionado.pk %}checked{% endif %} required />
+                <span class="professional-avatar">{{ profissional.nome|first|upper }}</span>
+                <strong>{{ profissional.nome }}</strong>
+                <small>{{ profissional.especialidade|default:"Profissional" }}</small>
+              </label>
+            {% empty %}
+              <div class="empty-state compact">Nenhum profissional disponível para este serviço.</div>
+            {% endfor %}
+          </div>
+          {% for error in form.profissional.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </section>
+
+        <section class="appointment-card">
+          <div class="appointment-card-title">
+            <span class="appointment-icon">4</span>
+            <div>
+              <h2>Data livre</h2>
+              <p>Datas calculadas conforme horários livres no banco</p>
+            </div>
+          </div>
+
+          <div class="booking-calendar" data-current-month="{{ mes_atual }}">
+            <div class="calendar-header">
+              {% if mes_anterior %}
+                <a class="calendar-nav" href="?servico={{ servico_selecionado.pk }}&profissional={{ profissional_selecionado.pk }}&mes={{ mes_anterior }}" aria-label="Mes anterior">&lsaquo;</a>
+              {% else %}
+                <span class="calendar-nav disabled" aria-hidden="true">&lsaquo;</span>
+              {% endif %}
+              <strong>{{ mes_label }}</strong>
+              <a class="calendar-nav" href="?servico={{ servico_selecionado.pk }}&profissional={{ profissional_selecionado.pk }}&mes={{ mes_proximo }}" aria-label="Proximo mes">&rsaquo;</a>
+            </div>
+
+            <div class="calendar-grid">
+              {% for dia_semana in dias_semana %}
+                <span class="calendar-weekday">{{ dia_semana }}</span>
+              {% endfor %}
+
+              {% for dia in calendario %}
+                {% if dia.empty %}
+                  <span class="calendar-day calendar-day-empty"></span>
+                {% elif dia.disponivel %}
+                  <label class="calendar-day calendar-day-available {% if dia.value == data_selecionada_value %}active{% endif %}" data-date="{{ dia.value }}" data-label="{{ dia.label }}">
+                    <input data-refresh type="radio" name="data" value="{{ dia.value }}" hidden {% if dia.value == data_selecionada_value %}checked{% endif %} required />
+                    <span>{{ dia.dia }}</span>
+                    {% if dia.hoje %}<small>Hoje</small>{% endif %}
+                  </label>
+                {% else %}
+                  <span class="calendar-day calendar-day-disabled {% if dia.passado %}past{% endif %} {% if dia.hoje %}today{% endif %}" data-date="{{ dia.value }}" data-label="{{ dia.label }}" aria-disabled="true">
+                    <span>{{ dia.dia }}</span>
+                    {% if dia.hoje %}<small>Hoje</small>{% endif %}
+                  </span>
+                {% endif %}
+              {% endfor %}
+            </div>
+
+            {% if not datas %}
+              <div class="empty-state compact">Nenhuma data livre para esta combinação.</div>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="appointment-card">
+          <div class="appointment-card-title">
+            <span class="appointment-icon">5</span>
+            <div>
+              <h2>Horário livre</h2>
+              <p>Horários ocupados por outros agendamentos não aparecem</p>
+            </div>
+          </div>
+
+          <div class="time-slots">
+            {% for horario in horarios %}
+              <label class="time-choice {% if horario.value == horario_selecionado %}active{% endif %}">
+                <input type="radio" name="horario" value="{{ horario.value }}" hidden {% if horario.value == horario_selecionado %}checked{% endif %} required />
+                {{ horario.label }}
+              </label>
+            {% empty %}
+              <div class="empty-state compact">Nenhum horário livre nesta data.</div>
+            {% endfor %}
+          </div>
+          {% for error in form.inicio.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </section>
+
+        <section class="appointment-card">
+          <div class="appointment-card-title">
+            <span class="appointment-icon">6</span>
+            <div>
+              <h2>Observações</h2>
+              <p>Opcional</p>
+            </div>
+          </div>
+          <textarea name="observacoes" rows="3" placeholder="Preferências, observações ou instruções para o atendimento">{{ form.observacoes.value|default_if_none:"" }}</textarea>
+        </section>
+
+        <section class="appointment-summary">
+          <div>
+            <span>Resumo</span>
+            <strong id="appointment-summary-text">Selecione os dados do agendamento</strong>
+          </div>
+          <button type="submit" class="btn btn-primary" {% if not servicos or not profissionais or not datas or not horarios %}disabled{% endif %}>
+            Confirmar agendamento
+          </button>
+        </section>
+      </form>
+    </main>
+
+    <script>
+      const clienteNome = "{{ cliente.nome|escapejs }}";
+      const summary = document.getElementById("appointment-summary-text");
+
+      function selectedLabel(selector) {
+        const input = document.querySelector(`${selector}:checked`);
+        const label = input ? input.closest("label") : null;
+        const title = label ? label.querySelector("strong") : null;
+        return label?.dataset.label || (title ? title.textContent.trim() : label ? label.textContent.trim() : "");
+      }
+
+      function refreshAvailability() {
+        const params = new URLSearchParams();
+        const servico = document.querySelector("input[name='servico']:checked");
+        const profissional = document.querySelector("input[name='profissional']:checked");
+        const data = document.querySelector("input[name='data']:checked");
+        const calendar = document.querySelector(".booking-calendar");
+        if (servico) params.set("servico", servico.value);
+        if (profissional) params.set("profissional", profissional.value);
+        if (data) {
+          params.set("data", data.value);
+          params.set("mes", data.value.slice(0, 7));
+        } else if (calendar?.dataset.currentMonth) {
+          params.set("mes", calendar.dataset.currentMonth);
+        }
+        window.location.href = `${window.location.pathname}?${params.toString()}`;
+      }
+
+      function updateSummary() {
+        const servico = selectedLabel("input[name='servico']");
+        const profissional = selectedLabel("input[name='profissional']");
+        const data = selectedLabel("input[name='data']");
+        const horario = selectedLabel("input[name='horario']");
+        summary.textContent = [clienteNome, servico, profissional, data, horario].filter(Boolean).join(" · ") || "Selecione os dados do agendamento";
+      }
+
+      document.querySelectorAll("input[data-refresh]").forEach((input) => {
+        input.addEventListener("change", refreshAvailability);
+      });
+
+      document.querySelectorAll("input[name='horario']").forEach((input) => {
+        input.addEventListener("change", () => {
+          document.querySelectorAll(".time-choice").forEach((item) => item.classList.remove("active"));
+          input.closest("label").classList.add("active");
+          updateSummary();
+        });
+      });
+
+      updateSummary();
+    </script>
+  </body>
+</html>

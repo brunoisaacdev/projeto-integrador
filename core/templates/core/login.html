@@ -1,0 +1,102 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Premium Barbearia | Acesso</title>
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=2" />
+  </head>
+  <body>
+    <div class="login-wrap">
+      <aside class="login-brand">
+        <div class="brand">
+          <div class="brand-logo">P</div>
+          <div>
+            <div class="brand-name">PREMIUM</div>
+            <div class="brand-sub">Barbearia</div>
+          </div>
+        </div>
+        <div>
+          <h2 style="font-size: 30px; margin-bottom: 12px; max-width: 360px">
+            Estilo e precisão em cada corte.
+          </h2>
+          <p style="opacity: 0.9; max-width: 360px; margin-bottom: 32px">
+            Gerencie agendamentos, clientes e profissionais em um só lugar.
+          </p>
+          <div class="login-features">
+            <div class="login-feature">
+              <span class="dot"></span> Agendamento sem conflito de horários
+            </div>
+            <div class="login-feature">
+              <span class="dot"></span> Controle completo de clientes
+            </div>
+            <div class="login-feature">
+              <span class="dot"></span> Painel administrativo moderno
+            </div>
+          </div>
+        </div>
+        <p style="opacity: 0.7; font-size: 13px">
+          &copy; 2026 Premium Barbearia
+        </p>
+      </aside>
+
+      <main class="login-form-side">
+        <div class="login-card">
+          <h1>Bem-vindo de volta</h1>
+          <p class="sub">Entre na sua conta para continuar</p>
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}" />
+
+            <div class="form-group">
+              <label for="{{ form.username.id_for_label }}">Usuário</label>
+              <input
+                type="text"
+                id="{{ form.username.id_for_label }}"
+                name="{{ form.username.html_name }}"
+                value="{{ form.username.value|default_if_none:'' }}"
+                placeholder="admin"
+                required
+                autofocus
+              />
+              {% for error in form.username.errors %}
+                <span class="form-error">{{ error }}</span>
+              {% endfor %}
+            </div>
+
+            <div class="form-group">
+              <label for="{{ form.password.id_for_label }}">Senha</label>
+              <input
+                type="password"
+                id="{{ form.password.id_for_label }}"
+                name="{{ form.password.html_name }}"
+                placeholder="••••••••"
+                required
+              />
+              {% for error in form.password.errors %}
+                <span class="form-error">{{ error }}</span>
+              {% endfor %}
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+              Entrar
+            </button>
+          </form>
+
+          <div class="login-register">
+            <span>Ainda não tem acesso?</span>
+            <a href="{% url 'usuario_novo' %}" class="btn btn-outline btn-block">
+              Cadastrar-se
+            </a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

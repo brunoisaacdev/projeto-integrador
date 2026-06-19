@@ -1,0 +1,100 @@
+{% extends "core/base.html" %}
+
+{% block title %}Dashboard | Premium Barbearia{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Visão geral da barbearia</p>
+  </div>
+  <a href="{% url 'agendamento_list' %}" class="btn btn-primary">Agendamentos</a>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Agendamentos hoje</div>
+    <div class="stat-value">{{ qtd_hoje }}</div>
+    <div class="stat-hint">Sem horários cancelados</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Clientes ativos</div>
+    <div class="stat-value">{{ total_clientes }}</div>
+    <div class="stat-hint">Clientes disponíveis para agenda</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Profissionais</div>
+    <div class="stat-value">{{ total_profissionais }}</div>
+    <div class="stat-hint">Profissionais ativos</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Faturamento previsto</div>
+    <div class="stat-value">R$ {{ faturamento_previsto|floatformat:2 }}</div>
+    <div class="stat-hint">Referente a hoje</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Agenda de hoje</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Horário</th>
+          <th>Cliente</th>
+          <th>Serviço</th>
+          <th>Profissional</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for agendamento in agendamentos_hoje %}
+        <tr>
+          <td>{{ agendamento.inicio|date:"H:i" }}</td>
+          <td>{{ agendamento.cliente.nome }}</td>
+          <td>{{ agendamento.servico.nome }}</td>
+          <td>{{ agendamento.profissional.nome }}</td>
+          <td><span class="badge badge-success">{{ agendamento.get_status_display }}</span></td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5">
+            <div class="empty-state">Nenhum agendamento para hoje.</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Profissionais mais agendados</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Profissional</th>
+          <th>Especialidade</th>
+          <th>Agendamentos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for profissional in ranking_profissionais %}
+        <tr>
+          <td>{{ profissional.nome }}</td>
+          <td>{{ profissional.especialidade|default:"-" }}</td>
+          <td>{{ profissional.qtd }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3">
+            <div class="empty-state">Nenhum profissional cadastrado.</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

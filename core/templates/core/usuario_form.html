@@ -1,0 +1,74 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cadastro de Usuário | Premium Barbearia</title>
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=2" />
+  </head>
+  <body>
+    <div class="login-wrap">
+      <aside class="login-brand">
+        <div class="brand">
+          <div class="brand-logo">P</div>
+          <div>
+            <div class="brand-name">PREMIUM</div>
+            <div class="brand-sub">Barbearia</div>
+          </div>
+        </div>
+        <div>
+          <h2 style="font-size: 30px; margin-bottom: 12px; max-width: 360px">
+            Crie seu acesso ao sistema.
+          </h2>
+          <p style="opacity: 0.9; max-width: 360px; margin-bottom: 32px">
+            Depois do cadastro, entre com seu usuário e senha para gerenciar a agenda.
+          </p>
+        </div>
+        <p style="opacity: 0.7; font-size: 13px">
+          &copy; 2026 Premium Barbearia
+        </p>
+      </aside>
+
+      <main class="login-form-side">
+        <div class="login-card register-card">
+          <h1>Novo usuário</h1>
+          <p class="sub">Crie uma conta de acesso ao sistema</p>
+
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <form method="post">
+            {% csrf_token %}
+            <div class="form-grid">
+              {% include "core/_form_field.html" with field=form.username only %}
+              {% include "core/_form_field.html" with field=form.email only %}
+              {% include "core/_form_field.html" with field=form.telefone only %}
+              {% include "core/_form_field.html" with field=form.first_name only %}
+              {% include "core/_form_field.html" with field=form.last_name only %}
+              {% include "core/_form_field.html" with field=form.password1 only %}
+              {% include "core/_form_field.html" with field=form.password2 only %}
+
+              {% if allow_staff_fields %}
+                {% include "core/_form_field.html" with field=form.is_staff full=True only %}
+                {% include "core/_form_field.html" with field=form.is_active full=True only %}
+              {% endif %}
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Cadastrar</button>
+              <a href="{% url 'login' %}" class="btn btn-outline">Voltar ao login</a>
+            </div>
+          </form>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

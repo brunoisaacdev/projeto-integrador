@@ -1,0 +1,35 @@
+{% extends "core/base.html" %}
+
+{% block title %}{% if profissional %}Editar profissional{% else %}Novo profissional{% endif %} | Premium Barbearia{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{% if profissional %}Editar profissional{% else %}Novo profissional{% endif %}</h1>
+    <p class="page-subtitle">Dados da equipe e serviços atendidos</p>
+  </div>
+</div>
+
+<div class="card">
+  <form method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid">
+      {% include "core/_form_field.html" with field=form.nome only %}
+      {% include "core/_form_field.html" with field=form.especialidade only %}
+      {% include "core/_form_field.html" with field=form.telefone only %}
+      {% include "core/_form_field.html" with field=form.email only %}
+      {% include "core/_form_field.html" with field=form.servicos full=True only %}
+      {% include "core/_form_field.html" with field=form.ativo full=True only %}
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Salvar</button>
+      <a href="{% url 'profissional_list' %}" class="btn btn-outline">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
