@@ -48,7 +48,6 @@ def is_staff(user):
     return user.is_active and user.is_staff
 
 
-# Decorator reutilizável para telas restritas ao admin
 staff_required = user_passes_test(is_staff, login_url="login")
 
 
@@ -216,8 +215,28 @@ def selecionar_por_id(queryset, pk):
 
 @login_required
 def agendar(request):
-    dados = request.POST if request.method == "POST" else request.GET
     cliente = cliente_do_usuario(request.user)
+
+    sucesso_id = request.GET.get("sucesso")
+    if request.method == "GET" and sucesso_id:
+        if not sucesso_id.isdigit():
+            return redirect("agendar")
+        agendamento = get_object_or_404(
+            Agendamento.objects.select_related(
+                "cliente",
+                "profissional",
+                "servico",
+            ),
+            pk=sucesso_id,
+            cliente=cliente,
+        )
+        return render(
+            request,
+            "core/agendamento_sucesso.html",
+            {"agendamento": agendamento},
+        )
+
+    dados = request.POST if request.method == "POST" else request.GET
     servicos = Servico.objects.filter(ativo=True).order_by("nome")
     servico = selecionar_por_id(servicos, dados.get("servico"))
     profissionais = profissionais_disponiveis_para(servico)
@@ -270,9 +289,8 @@ def agendar(request):
             item["value"] for item in horarios_post
         }
         if form.is_valid() and horario_valido:
-            form.save()
-            messages.success(request, "Agendamento confirmado com sucesso.")
-            return redirect("agendar")
+            agendamento = form.save()
+            return redirect(f'{reverse("agendar")}?sucesso={agendamento.pk}')
         if not horario_valido:
             form.add_error("inicio", "Horário indisponível para essa data.")
         messages.error(request, "Revise os dados do agendamento.")
@@ -304,6 +322,58 @@ def agendar(request):
             "profissional_selecionado": profissional,
             "servico_selecionado": servico,
             "servicos": servicos,
+        },
+    )
+
+
+@login_required
+def meus_agendamentos(request):
+    cliente = cliente_do_usuario(request.user)
+    agora = timezone.now()
+    todos = Agendamento.objects.select_related(
+        "profissional",
+        "servico",
+    ).filter(cliente=cliente)
+
+    total_proximos = todos.filter(
+        status=Agendamento.STATUS_AGENDADO,
+        inicio__gte=agora,
+    ).count()
+    total_concluidos = todos.filter(
+        status=Agendamento.STATUS_CONCLUIDO,
+    ).count()
+    total_cancelados = todos.filter(
+        status=Agendamento.STATUS_CANCELADO,
+    ).count()
+
+    filtro_status = request.GET.get("status", "todos")
+    if filtro_status == "proximos":
+        agendamentos = todos.filter(
+            status=Agendamento.STATUS_AGENDADO,
+            inicio__gte=agora,
+        ).order_by("inicio")
+    elif filtro_status == "concluidos":
+        agendamentos = todos.filter(
+            status=Agendamento.STATUS_CONCLUIDO,
+        ).order_by("-inicio")
+    elif filtro_status == "cancelados":
+        agendamentos = todos.filter(
+            status=Agendamento.STATUS_CANCELADO,
+        ).order_by("-inicio")
+    else:
+        filtro_status = "todos"
+        agendamentos = todos.order_by("-inicio")
+
+    return render(
+        request,
+        "core/meus_agendamentos.html",
+        {
+            "agendamentos": agendamentos,
+            "cliente": cliente,
+            "filtro_status": filtro_status,
+            "total_cancelados": total_cancelados,
+            "total_concluidos": total_concluidos,
+            "total_proximos": total_proximos,
         },
     )
 
@@ -353,16 +423,16 @@ def usuario_form(request):
     )
 
 
-# ---------------------------------------------------------------------------
-# Dashboard (restrito ao admin)
-# ---------------------------------------------------------------------------
 @login_required
 @staff_required
 def dashboard(request):
     hoje = timezone.localdate()
-    agendamentos_hoje = Agendamento.objects.filter(
-        inicio__date=hoje
-    ).exclude(status=Agendamento.STATUS_CANCELADO)
+    agendamentos_hoje = (
+        Agendamento.objects.select_related("cliente", "servico", "profissional")
+        .filter(inicio__date=hoje)
+        .exclude(status=Agendamento.STATUS_CANCELADO)
+        .order_by("inicio")
+    )
 
     contexto = {
         "total_clientes": Cliente.objects.filter(ativo=True).count(),
@@ -371,7 +441,7 @@ def dashboard(request):
         "total_agendados": Agendamento.objects.filter(
             status=Agendamento.STATUS_AGENDADO
         ).count(),
-        "agendamentos_hoje": agendamentos_hoje.order_by("inicio"),
+        "agendamentos_hoje": agendamentos_hoje,
         "qtd_hoje": agendamentos_hoje.count(),
         "faturamento_previsto": agendamentos_hoje.aggregate(
             total=Sum("servico__preco")
@@ -389,9 +459,6 @@ def dashboard(request):
     return render(request, "core/dashboard.html", contexto)
 
 
-# ---------------------------------------------------------------------------
-# Clientes (qualquer usuário logado pode cadastrar)
-# ---------------------------------------------------------------------------
 @login_required
 def cliente_list(request):
     busca = request.GET.get("q", "").strip()
@@ -428,9 +495,6 @@ def cliente_delete(request, pk):
     )
 
 
-# ---------------------------------------------------------------------------
-# Serviços (restrito ao admin)
-# ---------------------------------------------------------------------------
 @login_required
 @staff_required
 def servico_list(request):
@@ -465,9 +529,6 @@ def servico_delete(request, pk):
     )
 
 
-# ---------------------------------------------------------------------------
-# Profissionais (restrito ao admin)
-# ---------------------------------------------------------------------------
 @login_required
 @staff_required
 def profissional_list(request):
@@ -508,9 +569,6 @@ def profissional_delete(request, pk):
     )
 
 
-# ---------------------------------------------------------------------------
-# Agendamentos (qualquer usuário logado) + filtros + cancelamento
-# ---------------------------------------------------------------------------
 @login_required
 @staff_required
 def agendamento_list(request):

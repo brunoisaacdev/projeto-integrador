@@ -21,12 +21,34 @@ class BootstrapModelForm(forms.ModelForm):
 
 
 class ClienteForm(BootstrapModelForm):
+    is_staff = forms.BooleanField(
+        label="Administrador",
+        required=False,
+        initial=False,
+        help_text="Marcado: acesso completo. Desmarcado: somente agendamento.",
+    )
+
     class Meta:
         model = Cliente
         fields = ["nome", "email", "telefone", "observacoes", "ativo"]
         widgets = {
             "observacoes": forms.Textarea(attrs={"rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.usuario_id:
+            self.fields["is_staff"].initial = self.instance.usuario.is_staff
+
+    def save(self, commit=True):
+        cliente = super().save(commit=commit)
+
+        if commit and cliente.usuario_id:
+            usuario = cliente.usuario
+            usuario.is_staff = self.cleaned_data["is_staff"]
+            usuario.save(update_fields=["is_staff"])
+
+        return cliente
 
 
 class ServicoForm(BootstrapModelForm):
@@ -62,14 +84,12 @@ class AgendamentoForm(BootstrapModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["inicio"].input_formats = ["%Y-%m-%dT%H:%M"]
-        # Apenas registros ativos aparecem nas seleções
         self.fields["cliente"].queryset = Cliente.objects.filter(ativo=True)
         self.fields["profissional"].queryset = Profissional.objects.filter(ativo=True)
         self.fields["servico"].queryset = Servico.objects.filter(ativo=True)
 
     def clean(self):
         cleaned = super().clean()
-        # Dispara a validação de conflito definida no model
         instance = self.instance
         instance.cliente = cleaned.get("cliente")
         instance.profissional = cleaned.get("profissional")
@@ -156,9 +176,9 @@ class UsuarioCadastroForm(UserCreationForm):
     email = forms.EmailField(label="E-mail", required=False)
     telefone = forms.CharField(label="Telefone", max_length=20, required=False)
     is_staff = forms.BooleanField(
-        label="Acesso administrativo",
+        label="Usuário administrador",
         required=False,
-        help_text="Permite acessar dashboard, serviços e profissionais.",
+        help_text="Permite acessar todas as telas administrativas do sistema.",
     )
     is_active = forms.BooleanField(label="Usuário ativo", required=False, initial=True)
 

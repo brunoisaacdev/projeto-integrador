@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agendar Horário | Premium Barbearia</title>
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=8" />
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=15" />
   </head>
   <body class="appointments-page">
     <main class="appointments-shell appointments-shell-narrow">
@@ -22,6 +22,10 @@
           <p>Escolha uma opção disponível no banco de dados.</p>
         </div>
         <div class="appointments-actions">
+          <a href="{% url 'meus_agendamentos' %}" class="btn btn-my-bookings">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 15l2 2 5-5"/></svg>
+            <span>Meus agendamentos</span>
+          </a>
           {% if request.user.is_staff %}
             <a href="{% url 'agendamento_list' %}" class="btn btn-outline">Agendamentos</a>
           {% endif %}
@@ -199,24 +203,94 @@
               <p>Opcional</p>
             </div>
           </div>
-          <textarea name="observacoes" rows="3" placeholder="Preferências, observações ou instruções para o atendimento">{{ form.observacoes.value|default_if_none:"" }}</textarea>
+          <textarea class="appointment-observations" name="observacoes" rows="3" placeholder="Preferências, observações ou instruções para o atendimento">{{ form.observacoes.value|default_if_none:"" }}</textarea>
         </section>
 
         <section class="appointment-summary">
-          <div>
-            <span>Resumo</span>
-            <strong id="appointment-summary-text">Selecione os dados do agendamento</strong>
+          <div class="appointment-summary-header">
+            <div>
+              <span>Resumo do agendamento</span>
+              <strong>Confira os dados antes de confirmar</strong>
+            </div>
           </div>
-          <button type="submit" class="btn btn-primary" {% if not servicos or not profissionais or not datas or not horarios %}disabled{% endif %}>
-            Confirmar agendamento
-          </button>
+
+          <div class="appointment-summary-grid">
+            <div class="appointment-summary-item">
+              <span>Cliente</span>
+              <strong>{{ cliente.nome }}</strong>
+            </div>
+            <div class="appointment-summary-item">
+              <span>Serviço</span>
+              <strong id="summary-service">Não selecionado</strong>
+            </div>
+            <div class="appointment-summary-item">
+              <span>Profissional</span>
+              <strong id="summary-professional">Não selecionado</strong>
+            </div>
+            <div class="appointment-summary-item">
+              <span>Data</span>
+              <strong id="summary-date">Não selecionada</strong>
+            </div>
+            <div class="appointment-summary-item">
+              <span>Horário</span>
+              <strong id="summary-time">Não selecionado</strong>
+            </div>
+            <div class="appointment-summary-item appointment-summary-price">
+              <span>Valor</span>
+              <strong id="summary-price">R$ 0,00</strong>
+            </div>
+          </div>
+
+          <div class="appointment-summary-footer">
+            <small>Revise as informações antes de finalizar.</small>
+            <button type="submit" class="btn btn-primary" {% if not servicos or not profissionais or not datas or not horarios %}disabled{% endif %}>
+              Confirmar agendamento
+            </button>
+          </div>
         </section>
       </form>
     </main>
 
+    <div
+      class="booking-confirmation-modal"
+      id="booking-confirmation-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="booking-confirmation-title"
+      hidden
+    >
+      <div class="booking-confirmation-dialog">
+        <div class="booking-confirmation-icon" aria-hidden="true">?</div>
+        <span class="booking-confirmation-eyebrow">Confirmação</span>
+        <h2 id="booking-confirmation-title">Confirmar agendamento?</h2>
+        <p>
+          Deseja realmente confirmar este agendamento? O horário escolhido será reservado para você.
+        </p>
+        <div class="booking-confirmation-actions">
+          <button type="button" class="btn btn-outline" id="booking-confirmation-cancel">Voltar</button>
+          <button type="button" class="btn btn-primary" id="booking-confirmation-accept">Sim, confirmar</button>
+        </div>
+      </div>
+    </div>
+
     <script>
-      const clienteNome = "{{ cliente.nome|escapejs }}";
-      const summary = document.getElementById("appointment-summary-text");
+      const scrollKey = "agendar-scroll-y";
+      const observationsKey = "agendar-observacoes";
+
+      function restorePageState() {
+        const savedScroll = sessionStorage.getItem(scrollKey);
+        const savedObservations = sessionStorage.getItem(observationsKey);
+
+        if (savedObservations !== null) {
+          document.querySelector("textarea[name='observacoes']").value = savedObservations;
+          sessionStorage.removeItem(observationsKey);
+        }
+
+        if (savedScroll !== null) {
+          window.scrollTo(0, Number(savedScroll));
+          sessionStorage.removeItem(scrollKey);
+        }
+      }
 
       function selectedLabel(selector) {
         const input = document.querySelector(`${selector}:checked`);
@@ -225,7 +299,19 @@
         return label?.dataset.label || (title ? title.textContent.trim() : label ? label.textContent.trim() : "");
       }
 
+      function selectedPrice() {
+        const input = document.querySelector("input[name='servico']:checked");
+        const price = input?.closest("label")?.querySelector("b");
+        return price ? price.textContent.trim() : "R$ 0,00";
+      }
+
       function refreshAvailability() {
+        sessionStorage.setItem(scrollKey, String(window.scrollY));
+        sessionStorage.setItem(
+          observationsKey,
+          document.querySelector("textarea[name='observacoes']").value,
+        );
+
         const params = new URLSearchParams();
         const servico = document.querySelector("input[name='servico']:checked");
         const profissional = document.querySelector("input[name='profissional']:checked");
@@ -247,7 +333,12 @@
         const profissional = selectedLabel("input[name='profissional']");
         const data = selectedLabel("input[name='data']");
         const horario = selectedLabel("input[name='horario']");
-        summary.textContent = [clienteNome, servico, profissional, data, horario].filter(Boolean).join(" · ") || "Selecione os dados do agendamento";
+
+        document.getElementById("summary-service").textContent = servico || "Não selecionado";
+        document.getElementById("summary-professional").textContent = profissional || "Não selecionado";
+        document.getElementById("summary-date").textContent = data || "Não selecionada";
+        document.getElementById("summary-time").textContent = horario || "Não selecionado";
+        document.getElementById("summary-price").textContent = selectedPrice();
       }
 
       document.querySelectorAll("input[data-refresh]").forEach((input) => {
@@ -262,6 +353,45 @@
         });
       });
 
+      const appointmentForm = document.getElementById("appointment-form");
+      const confirmationModal = document.getElementById("booking-confirmation-modal");
+      const confirmationAccept = document.getElementById("booking-confirmation-accept");
+      const confirmationCancel = document.getElementById("booking-confirmation-cancel");
+      let confirmationApproved = false;
+
+      function closeConfirmationModal() {
+        confirmationModal.hidden = true;
+        document.body.classList.remove("booking-modal-open");
+      }
+
+      appointmentForm.addEventListener("submit", (event) => {
+        if (confirmationApproved) return;
+
+        event.preventDefault();
+        confirmationModal.hidden = false;
+        document.body.classList.add("booking-modal-open");
+        confirmationAccept.focus();
+      });
+
+      confirmationAccept.addEventListener("click", () => {
+        confirmationApproved = true;
+        closeConfirmationModal();
+        appointmentForm.requestSubmit();
+      });
+
+      confirmationCancel.addEventListener("click", closeConfirmationModal);
+
+      confirmationModal.addEventListener("click", (event) => {
+        if (event.target === confirmationModal) closeConfirmationModal();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !confirmationModal.hidden) {
+          closeConfirmationModal();
+        }
+      });
+
+      restorePageState();
       updateSummary();
     </script>
   </body>

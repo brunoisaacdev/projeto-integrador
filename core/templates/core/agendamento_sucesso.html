@@ -1,0 +1,141 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agendamento concluído | Premium Barbearia</title>
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=15" />
+  </head>
+  <body class="appointments-page">
+    <main class="appointments-shell appointments-shell-narrow">
+      <header class="appointments-hero client-appointment-hero">
+        <div class="appointments-brand">
+          <div class="brand-logo">P</div>
+          <div>
+            <div class="brand-name">PREMIUM</div>
+            <div class="brand-sub">Barbearia</div>
+          </div>
+        </div>
+        <div class="appointments-heading">
+          <h1>Agendamento concluído</h1>
+          <p>Seu horário foi reservado com sucesso.</p>
+        </div>
+        <div class="appointments-actions">
+          <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline">Sair</button>
+          </form>
+        </div>
+      </header>
+
+      <section class="booking-success-card">
+        <div class="booking-success-top">
+          <div class="booking-success-icon" aria-hidden="true">&#10003;</div>
+          <h2>Agendamento confirmado!</h2>
+          <p>
+            Tudo certo, {{ agendamento.cliente.nome }}. Seu horário foi reservado.
+          </p>
+          <span class="booking-success-reference">Código: <strong>#{{ agendamento.pk }}</strong></span>
+        </div>
+
+        <div class="booking-success-details">
+          <div class="booking-success-detail-row">
+            <div class="booking-success-detail-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="booking-success-detail-info">
+              <span>Profissional</span>
+              <strong>{{ agendamento.profissional.nome }}</strong>
+              {% if agendamento.profissional.especialidade %}
+                <small>{{ agendamento.profissional.especialidade }}</small>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="booking-success-detail-row">
+            <div class="booking-success-detail-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="m8.6 8.5 11.4 6.5M8.6 15.5 20 9"/></svg>
+            </div>
+            <div class="booking-success-detail-info">
+              <span>Serviço</span>
+              <strong>{{ agendamento.servico.nome }}</strong>
+              <small>Duração: {{ agendamento.servico.duracao_minutos }} minutos</small>
+            </div>
+          </div>
+
+          <div class="booking-success-detail-row">
+            <div class="booking-success-detail-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+            </div>
+            <div class="booking-success-detail-info">
+              <span>Data</span>
+              <strong>{{ agendamento.inicio|date:"d/m/Y" }}</strong>
+            </div>
+          </div>
+
+          <div class="booking-success-detail-row">
+            <div class="booking-success-detail-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </div>
+            <div class="booking-success-detail-info">
+              <span>Horário</span>
+              <strong>{{ agendamento.inicio|date:"H:i" }} &ndash; {{ agendamento.fim|date:"H:i" }}</strong>
+            </div>
+          </div>
+
+          {% if agendamento.cliente.telefone %}
+            <div class="booking-success-detail-row">
+              <div class="booking-success-detail-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.8 2.1z"/></svg>
+              </div>
+              <div class="booking-success-detail-info">
+                <span>Contato</span>
+                <strong>{{ agendamento.cliente.telefone }}</strong>
+              </div>
+            </div>
+          {% endif %}
+
+          {% if agendamento.observacoes %}
+            <div class="booking-success-detail-row">
+              <div class="booking-success-detail-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8"/></svg>
+              </div>
+              <div class="booking-success-detail-info">
+                <span>Observações</span>
+                <strong>{{ agendamento.observacoes }}</strong>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="booking-success-price">
+          <span>Valor do serviço</span>
+          <strong>R$ {{ agendamento.servico.preco|floatformat:2 }}</strong>
+        </div>
+
+        <div class="booking-success-status">
+          <span>Situação:</span>
+          <strong><i aria-hidden="true"></i>{{ agendamento.get_status_display }}</strong>
+        </div>
+
+        <div class="booking-success-actions">
+          <a href="{% url 'meus_agendamentos' %}" class="btn btn-my-bookings booking-success-main-action">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 15l2 2 5-5"/></svg>
+            <span>Meus agendamentos</span>
+          </a>
+          <div class="booking-success-secondary-actions">
+            <a href="{% url 'agendar' %}" class="btn btn-outline">Fazer novo agendamento</a>
+            {% if request.user.is_staff %}
+              <a href="{% url 'agendamento_list' %}" class="btn btn-outline">Gerenciar agendamentos</a>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <p class="booking-success-help">
+        Precisa alterar ou cancelar? Fale com a recepção da barbearia.
+      </p>
+    </main>
+  </body>
+</html>

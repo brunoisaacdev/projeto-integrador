@@ -108,7 +108,6 @@ class Agendamento(models.Model):
         if not self.inicio or not self.servico_id or not self.profissional_id:
             return
 
-        # Não valida conflito em agendamentos cancelados
         if self.status == self.STATUS_CANCELADO:
             return
 
@@ -118,7 +117,6 @@ class Agendamento(models.Model):
         if inicio < timezone.now() and not self.pk:
             raise ValidationError({"inicio": "Não é possível agendar em uma data/hora passada."})
 
-        # Busca agendamentos do mesmo profissional que não estejam cancelados
         conflitos = Agendamento.objects.filter(
             profissional=self.profissional,
         ).exclude(status=self.STATUS_CANCELADO)
@@ -127,7 +125,6 @@ class Agendamento(models.Model):
             conflitos = conflitos.exclude(pk=self.pk)
 
         for outro in conflitos:
-            # Sobreposição: inicio < outro.fim AND outro.inicio < fim
             if inicio < outro.fim and outro.inicio < fim:
                 raise ValidationError(
                     "Conflito de horário: %(prof)s já possui um agendamento de "

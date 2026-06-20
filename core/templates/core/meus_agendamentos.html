@@ -1,0 +1,113 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meus agendamentos | Premium Barbearia</title>
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=15" />
+  </head>
+  <body class="appointments-page">
+    <main class="appointments-shell appointments-shell-narrow">
+      <header class="appointments-hero client-appointment-hero">
+        <div class="appointments-brand">
+          <div class="brand-logo">P</div>
+          <div>
+            <div class="brand-name">PREMIUM</div>
+            <div class="brand-sub">Barbearia</div>
+          </div>
+        </div>
+        <div class="appointments-heading">
+          <h1>Meus agendamentos</h1>
+          <p>Olá, {{ cliente.nome }}. Acompanhe aqui todos os seus horários.</p>
+        </div>
+        <div class="appointments-actions">
+          <a href="{% url 'agendar' %}" class="btn btn-primary">Novo agendamento</a>
+          <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline">Sair</button>
+          </form>
+        </div>
+      </header>
+
+      <section class="my-bookings-summary" aria-label="Resumo dos agendamentos">
+        <div class="my-bookings-summary-card">
+          <div class="my-bookings-summary-icon upcoming" aria-hidden="true">+</div>
+          <div>
+            <strong>{{ total_proximos }}</strong>
+            <span>Próximos</span>
+          </div>
+        </div>
+        <div class="my-bookings-summary-card">
+          <div class="my-bookings-summary-icon done" aria-hidden="true">&#10003;</div>
+          <div>
+            <strong>{{ total_concluidos }}</strong>
+            <span>Concluídos</span>
+          </div>
+        </div>
+        <div class="my-bookings-summary-card">
+          <div class="my-bookings-summary-icon canceled" aria-hidden="true">&times;</div>
+          <div>
+            <strong>{{ total_cancelados }}</strong>
+            <span>Cancelados</span>
+          </div>
+        </div>
+      </section>
+
+      <nav class="my-bookings-tabs" aria-label="Filtrar agendamentos">
+        <a href="?status=todos" class="my-bookings-tab{% if filtro_status == 'todos' %} active{% endif %}">Todos</a>
+        <a href="?status=proximos" class="my-bookings-tab{% if filtro_status == 'proximos' %} active{% endif %}">Próximos</a>
+        <a href="?status=concluidos" class="my-bookings-tab{% if filtro_status == 'concluidos' %} active{% endif %}">Concluídos</a>
+        <a href="?status=cancelados" class="my-bookings-tab{% if filtro_status == 'cancelados' %} active{% endif %}">Cancelados</a>
+      </nav>
+
+      <section class="my-bookings-list" aria-label="Lista de agendamentos">
+        {% for agendamento in agendamentos %}
+          <article class="my-bookings-card">
+            <div class="my-bookings-date">
+              <strong>{{ agendamento.inicio|date:"d" }}</strong>
+              <span>{{ agendamento.inicio|date:"M" }}</span>
+              <small>{{ agendamento.inicio|date:"D" }}</small>
+            </div>
+
+            <div class="my-bookings-body">
+              <div class="my-bookings-info">
+                <h2>{{ agendamento.servico.nome }}</h2>
+                <div class="my-bookings-meta">
+                  <span><b>Horário:</b> {{ agendamento.inicio|date:"H:i" }} &ndash; {{ agendamento.fim|date:"H:i" }}</span>
+                  <span><b>Profissional:</b> {{ agendamento.profissional.nome }}</span>
+                  {% if agendamento.observacoes %}
+                    <span><b>Observações:</b> {{ agendamento.observacoes|truncatechars:70 }}</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="my-bookings-side">
+                {% if agendamento.status == 'concluido' %}
+                  <span class="my-bookings-badge success">{{ agendamento.get_status_display }}</span>
+                {% elif agendamento.status == 'cancelado' %}
+                  <span class="my-bookings-badge danger">{{ agendamento.get_status_display }}</span>
+                {% else %}
+                  <span class="my-bookings-badge info">{{ agendamento.get_status_display }}</span>
+                {% endif %}
+                <strong class="my-bookings-price">R$ {{ agendamento.servico.preco|floatformat:2 }}</strong>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="my-bookings-empty">
+            <div class="my-bookings-empty-icon" aria-hidden="true">&#9638;</div>
+            <h2>Nenhum agendamento encontrado</h2>
+            {% if filtro_status == 'todos' %}
+              <p>Você ainda não possui horários cadastrados.</p>
+              <a href="{% url 'agendar' %}" class="btn btn-primary">Agendar agora</a>
+            {% else %}
+              <p>Não existem agendamentos para este filtro.</p>
+              <a href="?status=todos" class="btn btn-outline">Ver todos</a>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </section>
+    </main>
+  </body>
+</html>
