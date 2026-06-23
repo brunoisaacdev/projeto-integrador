@@ -5,39 +5,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Premium Barbearia | Acesso</title>
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=2" />
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=5" />
   </head>
   <body>
     <div class="login-wrap">
       <aside class="login-brand">
-        <div class="brand">
-          <div class="brand-logo">P</div>
-          <div>
-            <div class="brand-name">PREMIUM</div>
-            <div class="brand-sub">Barbearia</div>
-          </div>
-        </div>
         <div>
-          <h2 style="font-size: 30px; margin-bottom: 12px; max-width: 360px">
-            Estilo e precisão em cada corte.
+          <h2 style="font-size: 30px; margin-bottom: 21px; max-width: 450px">
+            
           </h2>
           <p style="opacity: 0.9; max-width: 360px; margin-bottom: 32px">
-            Gerencie agendamentos, clientes e profissionais em um só lugar.
           </p>
           <div class="login-features">
             <div class="login-feature">
-              <span class="dot"></span> Agendamento sem conflito de horários
+              <span class="login-features"></span> 
             </div>
             <div class="login-feature">
-              <span class="dot"></span> Controle completo de clientes
+              <span class="login-features"></span> 
             </div>
             <div class="login-feature">
-              <span class="dot"></span> Painel administrativo moderno
+              <span class="login-features"></span> 
             </div>
           </div>
         </div>
         <p style="opacity: 0.7; font-size: 13px">
-          &copy; 2026 Premium Barbearia
+          &copy; 2026 - Bruno Isaac & Guilherme Hernandez. Todos os direitos reservados.
         </p>
       </aside>
 
@@ -61,7 +53,7 @@
                 id="{{ form.username.id_for_label }}"
                 name="{{ form.username.html_name }}"
                 value="{{ form.username.value|default_if_none:'' }}"
-                placeholder="admin"
+                placeholder="Insira seu nome"
                 required
                 autofocus
               />
@@ -76,7 +68,7 @@
                 type="password"
                 id="{{ form.password.id_for_label }}"
                 name="{{ form.password.html_name }}"
-                placeholder="••••••••"
+                placeholder="Insira sua senha"
                 required
               />
               {% for error in form.password.errors %}

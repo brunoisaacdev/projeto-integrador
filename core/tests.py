@@ -160,6 +160,95 @@ class CorePageSmokeTests(TestCase):
         usuario.refresh_from_db()
         self.assertFalse(usuario.is_staff)
 
+    def test_editing_client_updates_login_username_and_user_data(self):
+        User = get_user_model()
+        usuario = User.objects.create_user(
+            username="usuario_antigo",
+            password="cliente123",
+            first_name="Nome",
+            last_name="Antigo",
+            email="antigo@example.com",
+        )
+        cliente = Cliente.objects.create(
+            usuario=usuario,
+            nome="Nome Antigo",
+            email="antigo@example.com",
+            telefone="11555555555",
+        )
+
+        response = self.client.post(
+            reverse("cliente_editar", args=[cliente.pk]),
+            {
+                "username": "usuario_novo",
+                "nome": "Nome Atualizado",
+                "email": "novo@example.com",
+                "telefone": "11444444444",
+                "observacoes": "",
+                "ativo": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("cliente_list"))
+        usuario.refresh_from_db()
+        self.assertEqual(usuario.username, "usuario_novo")
+        self.assertEqual(usuario.first_name, "Nome")
+        self.assertEqual(usuario.last_name, "Atualizado")
+        self.assertEqual(usuario.email, "novo@example.com")
+
+        self.client.logout()
+        response = self.client.post(
+            reverse("login"),
+            {"username": "usuario_antigo", "password": "cliente123"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "usuario_novo", "password": "cliente123"},
+        )
+        self.assertRedirects(response, reverse("agendar"))
+
+    def test_inactivating_client_disables_login_and_shows_notice(self):
+        User = get_user_model()
+        usuario = User.objects.create_user(
+            username="cliente_ativo",
+            password="cliente123",
+            is_active=True,
+        )
+        cliente = Cliente.objects.create(
+            usuario=usuario,
+            nome="Cliente Ativo",
+            email="cliente@example.com",
+            telefone="11333333333",
+            ativo=True,
+        )
+
+        response = self.client.post(
+            reverse("cliente_editar", args=[cliente.pk]),
+            {
+                "username": usuario.username,
+                "nome": cliente.nome,
+                "email": cliente.email,
+                "telefone": cliente.telefone,
+                "observacoes": "",
+            },
+        )
+
+        self.assertRedirects(response, reverse("cliente_list"))
+        usuario.refresh_from_db()
+        self.assertFalse(usuario.is_active)
+
+        self.client.logout()
+        response = self.client.post(
+            reverse("login"),
+            {"username": "cliente_ativo", "password": "cliente123"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Este usuário está inativo")
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
     def test_anonymous_user_accesses_only_login_and_registration(self):
         self.client.logout()
 
@@ -279,6 +368,20 @@ class CorePageSmokeTests(TestCase):
         )
         self.assertEqual(response.context["qtd_hoje"], 1)
         self.assertContains(response, "12:00")
+        ranking = response.context["ranking_profissionais"]
+        self.assertEqual(ranking[0], self.profissional)
+        self.assertEqual(ranking[0].qtd, 2)
+        self.assertEqual(ranking[0].percentual_grafico, 100)
+        self.assertContains(response, 'class="professionals-chart"')
+        self.assertContains(response, "width: 100%")
+        self.assertContains(response, "2 agendamentos")
+        ranking_servicos = response.context["ranking_servicos"]
+        self.assertEqual(ranking_servicos[0], self.servico)
+        self.assertEqual(ranking_servicos[0].qtd, 2)
+        self.assertEqual(ranking_servicos[0].percentual_grafico, 100)
+        self.assertEqual(response.context["total_ranking_servicos"], 2)
+        self.assertContains(response, 'class="services-pie"')
+        self.assertContains(response, "#7c3aed 0.00% 100.00%")
 
     def test_agendamento_page_filters_by_client(self):
         outro_cliente = Cliente.objects.create(nome="Outro Cliente", telefone="1100000000")

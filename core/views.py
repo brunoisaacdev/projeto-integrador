@@ -18,6 +18,7 @@ from .forms import (
     ClienteForm,
     ProfissionalForm,
     ServicoForm,
+    SistemaAuthenticationForm,
     UsuarioCadastroForm,
 )
 from .models import Agendamento, Cliente, Profissional, Servico
@@ -380,6 +381,7 @@ def meus_agendamentos(request):
 
 class SistemaLoginView(LoginView):
     template_name = "core/login.html"
+    authentication_form = SistemaAuthenticationForm
     redirect_authenticated_user = True
 
     def get_success_url(self):
@@ -433,6 +435,50 @@ def dashboard(request):
         .exclude(status=Agendamento.STATUS_CANCELADO)
         .order_by("inicio")
     )
+    ranking_profissionais = list(
+        Profissional.objects.annotate(
+            qtd=Count(
+                "agendamentos",
+                filter=~Q(agendamentos__status=Agendamento.STATUS_CANCELADO),
+            )
+        )
+        .order_by("-qtd", "nome")[:5]
+    )
+    maior_quantidade = ranking_profissionais[0].qtd if ranking_profissionais else 0
+    for profissional in ranking_profissionais:
+        profissional.percentual_grafico = (
+            max(8, round(profissional.qtd * 100 / maior_quantidade))
+            if profissional.qtd and maior_quantidade
+            else 0
+        )
+
+    ranking_servicos = list(
+        Servico.objects.annotate(
+            qtd=Count(
+                "agendamentos",
+                filter=~Q(agendamentos__status=Agendamento.STATUS_CANCELADO),
+            )
+        )
+        .filter(qtd__gt=0)
+        .order_by("-qtd", "nome")[:5]
+    )
+    total_ranking_servicos = sum(servico.qtd for servico in ranking_servicos)
+    cores_grafico = ["#7c3aed", "#3b82f6", "#22c55e", "#f59e0b", "#ec4899"]
+    fatias_grafico = []
+    inicio_fatia = 0
+    for indice, servico in enumerate(ranking_servicos):
+        percentual = servico.qtd * 100 / total_ranking_servicos
+        fim_fatia = (
+            100
+            if indice == len(ranking_servicos) - 1
+            else inicio_fatia + percentual
+        )
+        servico.cor_grafico = cores_grafico[indice]
+        servico.percentual_grafico = round(percentual, 1)
+        fatias_grafico.append(
+            f"{servico.cor_grafico} {inicio_fatia:.2f}% {fim_fatia:.2f}%"
+        )
+        inicio_fatia = fim_fatia
 
     contexto = {
         "total_clientes": Cliente.objects.filter(ativo=True).count(),
@@ -447,14 +493,10 @@ def dashboard(request):
             total=Sum("servico__preco")
         )["total"]
         or 0,
-        "ranking_profissionais": (
-            Profissional.objects.annotate(
-                qtd=Count(
-                    "agendamentos",
-                    filter=~Q(agendamentos__status=Agendamento.STATUS_CANCELADO),
-                )
-            ).order_by("-qtd")[:5]
-        ),
+        "ranking_profissionais": ranking_profissionais,
+        "ranking_servicos": ranking_servicos,
+        "total_ranking_servicos": total_ranking_servicos,
+        "grafico_servicos_css": f"conic-gradient({', '.join(fatias_grafico)})",
     }
     return render(request, "core/dashboard.html", contexto)
 

@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 
 from .models import Agendamento, Cliente, Profissional, Servico
 
@@ -21,6 +21,12 @@ class BootstrapModelForm(forms.ModelForm):
 
 
 class ClienteForm(BootstrapModelForm):
+    username = forms.CharField(
+        label="Usuário de acesso",
+        max_length=150,
+        required=False,
+        help_text="Nome utilizado pelo cliente para entrar no sistema.",
+    )
     is_staff = forms.BooleanField(
         label="Administrador",
         required=False,
@@ -38,15 +44,54 @@ class ClienteForm(BootstrapModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.usuario_id:
+            self.fields["username"].initial = self.instance.usuario.get_username()
             self.fields["is_staff"].initial = self.instance.usuario.is_staff
+        else:
+            self.fields.pop("username", None)
+
+    def clean_username(self):
+        usuario = self.instance.usuario if self.instance.usuario_id else None
+        username = self.cleaned_data.get("username", "").strip()
+
+        if usuario is None:
+            return username
+        if not username:
+            return usuario.get_username()
+
+        username_field = usuario.USERNAME_FIELD
+        username_em_uso = (
+            get_user_model()
+            ._default_manager.filter(**{f"{username_field}__iexact": username})
+            .exclude(pk=usuario.pk)
+            .exists()
+        )
+        if username_em_uso:
+            raise forms.ValidationError("Este usuário de acesso já está em uso.")
+
+        return username
 
     def save(self, commit=True):
         cliente = super().save(commit=commit)
 
         if commit and cliente.usuario_id:
             usuario = cliente.usuario
+            partes_nome = cliente.nome.strip().split(maxsplit=1)
+            usuario.first_name = partes_nome[0] if partes_nome else ""
+            usuario.last_name = partes_nome[1] if len(partes_nome) > 1 else ""
+            usuario.email = cliente.email
+            setattr(usuario, usuario.USERNAME_FIELD, self.cleaned_data["username"])
             usuario.is_staff = self.cleaned_data["is_staff"]
-            usuario.save(update_fields=["is_staff"])
+            usuario.is_active = cliente.ativo
+            usuario.save(
+                update_fields=[
+                    usuario.USERNAME_FIELD,
+                    "first_name",
+                    "last_name",
+                    "email",
+                    "is_staff",
+                    "is_active",
+                ]
+            )
 
         return cliente
 
@@ -218,6 +263,39 @@ class UsuarioCadastroForm(UserCreationForm):
                     "nome": nome,
                     "email": user.email,
                     "telefone": self.cleaned_data.get("telefone", ""),
+                    "ativo": user.is_active,
                 },
             )
         return user
+
+
+class SistemaAuthenticationForm(AuthenticationForm):
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        "inactive": "Este usuário está inativo. Entre em contato com o administrador.",
+    }
+
+    def clean(self):
+        try:
+            return super().clean()
+        except forms.ValidationError as erro:
+            username = self.cleaned_data.get("username")
+            password = self.cleaned_data.get("password")
+
+            if username and password:
+                try:
+                    usuario = get_user_model()._default_manager.get_by_natural_key(username)
+                except get_user_model().DoesNotExist:
+                    usuario = None
+
+                if (
+                    usuario is not None
+                    and not usuario.is_active
+                    and usuario.check_password(password)
+                ):
+                    raise forms.ValidationError(
+                        self.error_messages["inactive"],
+                        code="inactive",
+                    )
+
+            raise erro

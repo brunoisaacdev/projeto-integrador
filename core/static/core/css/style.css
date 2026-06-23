@@ -72,16 +72,11 @@ a {
 }
 
 .brand-logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--gradient);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 18px;
-  color: #fff;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  display: block;
+  object-fit: contain;
 }
 
 .brand-name {
@@ -308,6 +303,134 @@ a {
   font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
+}
+
+/* ---------- Gráfico de profissionais ---------- */
+.dashboard-charts-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  margin-top: 20px;
+}
+
+.dashboard-charts-grid .card {
+  margin-top: 0;
+}
+
+.professionals-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 6px 0;
+}
+
+.professionals-chart-row {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.professionals-chart-heading {
+  align-items: flex-end;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.professionals-chart-name,
+.professionals-chart-specialty {
+  display: block;
+}
+
+.professionals-chart-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.professionals-chart-specialty {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 1px;
+}
+
+.professionals-chart-count {
+  color: #c4b5fd;
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.professionals-chart-track {
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  height: 18px;
+  overflow: hidden;
+}
+
+.professionals-chart-bar {
+  background: var(--gradient);
+  border-radius: inherit;
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.28);
+  height: 100%;
+}
+
+.services-pie-layout {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.services-pie {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  flex: 0 0 210px;
+}
+
+.services-pie-legend {
+  display: flex;
+  flex: 1 1 170px;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+}
+
+.services-pie-legend-item {
+  align-items: center;
+  display: grid;
+  font-size: 12px;
+  gap: 8px;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+}
+
+.services-pie-total {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.services-pie-swatch {
+  border-radius: 3px;
+  height: 10px;
+  width: 10px;
+}
+
+.services-pie-name {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.services-pie-legend-item strong {
+  color: var(--text);
+  font-weight: 700;
 }
 
 /* ---------- Tabelas ---------- */
@@ -546,8 +669,19 @@ textarea {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow: hidden;
   padding: 48px;
   color: #fff;
+}
+
+.login-brand::before {
+  content: "";
+  position: absolute;
+  inset: -3%;
+  background:
+    linear-gradient(135deg, rgba(124, 58, 237, 0.34), rgba(59, 130, 246, 0.34)),
+    url("img/logo-premium.png") center / cover no-repeat;
+  transform: translateY(-2%);
 }
 
 .login-brand::after {
@@ -1872,6 +2006,9 @@ textarea {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr;
+  }
   .appointments-hero,
   .appointments-grid,
   .appointment-stats {
@@ -2022,6 +2159,16 @@ textarea {
 }
 
 @media (max-width: 480px) {
+  .professionals-chart-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .services-pie {
+    flex-basis: 190px;
+  }
+
   .calendar-grid {
     gap: 5px;
   }

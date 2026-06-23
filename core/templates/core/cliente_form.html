@@ -18,6 +18,9 @@
     {% endif %}
 
     <div class="form-grid">
+      {% if form.username %}
+        {% include "core/_form_field.html" with field=form.username only %}
+      {% endif %}
       {% include "core/_form_field.html" with field=form.nome only %}
       {% include "core/_form_field.html" with field=form.email only %}
       {% include "core/_form_field.html" with field=form.telefone only %}

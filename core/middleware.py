@@ -12,7 +12,6 @@ class ControleAcessoMiddleware:
     def __call__(self, request):
         caminho = request.path_info
 
-        # Permite o carregamento de imagens, CSS e JavaScript.
         static_url = settings.STATIC_URL
         media_url = getattr(settings, "MEDIA_URL", "")
         if caminho.startswith(static_url) or (
