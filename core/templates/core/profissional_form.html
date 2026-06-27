@@ -11,7 +11,7 @@
 </div>
 
 <div class="card">
-  <form method="post">
+  <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     {% if form.non_field_errors %}
       <div class="alert alert-danger">{{ form.non_field_errors }}</div>
@@ -22,7 +22,42 @@
       {% include "core/_form_field.html" with field=form.especialidade only %}
       {% include "core/_form_field.html" with field=form.telefone only %}
       {% include "core/_form_field.html" with field=form.email only %}
-      {% include "core/_form_field.html" with field=form.servicos full=True only %}
+      <div class="form-group full">
+        {% if profissional and profissional.foto %}
+          <div class="professional-photo-preview">
+            <img
+              src="{{ profissional.foto.url }}"
+              alt="Foto de {{ profissional.nome }}"
+              width="72"
+              height="72"
+            />
+          </div>
+        {% endif %}
+        <label for="{{ form.foto.id_for_label }}">{{ form.foto.label }}</label>
+        {{ form.foto }}
+        {% if form.foto.help_text %}
+          <span class="form-hint">{{ form.foto.help_text }}</span>
+        {% endif %}
+        {% for error in form.foto.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
+      <div class="form-group full">
+        <label>{{ form.servicos.label }}</label>
+        <div class="service-checkbox-grid">
+          {% for opcao in form.servicos %}
+            <label class="service-checkbox" for="{{ opcao.id_for_label }}">
+              {{ opcao.tag }}
+              <span>{{ opcao.choice_label }}</span>
+            </label>
+          {% empty %}
+            <span class="form-hint">Cadastre um serviço ativo antes de cadastrar o profissional.</span>
+          {% endfor %}
+        </div>
+        {% for error in form.servicos.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
       {% include "core/_form_field.html" with field=form.ativo full=True only %}
     </div>
 

@@ -20,9 +20,9 @@ class ControleAcessoMiddleware:
             and caminho.startswith(media_url)
         ):
             return self.get_response(request)
-
+ 
         login = reverse("login")
-        cadastro = reverse("usuario_novo")
+        cadastro = reverse("cliente_cadastro")
         agendar = reverse("agendar")
         meus_agendamentos = reverse("meus_agendamentos")
         logout = reverse("logout")

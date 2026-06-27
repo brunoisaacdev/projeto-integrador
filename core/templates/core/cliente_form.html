@@ -6,7 +6,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{% if cliente %}Editar cliente{% else %}Novo cliente{% endif %}</h1>
-    <p class="page-subtitle">Dados de contato e observações</p>
+    <p class="page-subtitle">Dados pessoais e acesso ao sistema</p>
   </div>
 </div>
 
@@ -18,15 +18,12 @@
     {% endif %}
 
     <div class="form-grid">
-      {% if form.username %}
-        {% include "core/_form_field.html" with field=form.username only %}
-      {% endif %}
-      {% include "core/_form_field.html" with field=form.nome only %}
+      {% include "core/_form_field.html" with field=form.nome full=True only %}
       {% include "core/_form_field.html" with field=form.email only %}
       {% include "core/_form_field.html" with field=form.telefone only %}
+      {% include "core/_form_field.html" with field=form.password full=True only %}
       {% include "core/_form_field.html" with field=form.ativo only %}
       {% include "core/_form_field.html" with field=form.is_staff only %}
-      {% include "core/_form_field.html" with field=form.observacoes full=True only %}
     </div>
 
     <div class="form-actions">

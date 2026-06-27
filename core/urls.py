@@ -5,7 +5,7 @@ from . import views
 urlpatterns = [
     path("login/", views.SistemaLoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
-    path("usuarios/novo/", views.usuario_form, name="usuario_novo"),
+    path("clientes/cadastro/", views.cliente_cadastro, name="cliente_cadastro"),
     path("agendar/", views.agendar, name="agendar"),
     path("meus-agendamentos/", views.meus_agendamentos, name="meus_agendamentos"),
 
@@ -29,5 +29,6 @@ urlpatterns = [
     path("agendamentos/", views.agendamento_list, name="agendamento_list"),
     path("agendamentos/novo/", views.agendamento_form, name="agendamento_novo"),
     path("agendamentos/<int:pk>/editar/", views.agendamento_form, name="agendamento_editar"),
+    path("agendamentos/<int:pk>/concluir/", views.agendamento_concluir, name="agendamento_concluir"),
     path("agendamentos/<int:pk>/cancelar/", views.agendamento_cancelar, name="agendamento_cancelar"),
 ]

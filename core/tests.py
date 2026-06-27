@@ -1,13 +1,24 @@
+import shutil
+import tempfile
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from .models import Agendamento, Cliente, Profissional, Servico
 
 
+TEST_MEDIA_ROOT = tempfile.mkdtemp()
+
+
+def tearDownModule():
+    shutil.rmtree(TEST_MEDIA_ROOT, ignore_errors=True)
+
+
+@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
 class CorePageSmokeTests(TestCase):
     def setUp(self):
         User = get_user_model()
@@ -48,57 +59,54 @@ class CorePageSmokeTests(TestCase):
         response = self.client.get(reverse("login"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, reverse("usuario_novo"))
+        self.assertContains(response, reverse("cliente_cadastro"))
 
-    def test_usuario_form_creates_regular_user_and_cliente(self):
+    def test_cliente_cadastro_creates_regular_user_and_cliente(self):
         self.client.logout()
 
         response = self.client.post(
-            reverse("usuario_novo"),
+            reverse("cliente_cadastro"),
             {
-                "username": "recepcao",
-                "first_name": "Maria",
-                "last_name": "Recepcao",
+                "nome": "Maria Recepcao",
                 "email": "recepcao@example.com",
                 "telefone": "11888888888",
-                "password1": "SenhaForte123!",
-                "password2": "SenhaForte123!",
+                "password": "123456",
             },
         )
 
         self.assertRedirects(response, reverse("login"))
         User = get_user_model()
-        user = User.objects.get(username="recepcao")
+        user = User.objects.get(email="recepcao@example.com")
+        self.assertTrue(user.username.startswith("cliente_"))
         self.assertFalse(user.is_staff)
         self.assertTrue(user.is_active)
         self.assertEqual(user.cliente.nome, "Maria Recepcao")
         self.assertEqual(user.cliente.telefone, "11888888888")
+        self.assertTrue(user.check_password("123456"))
 
     def test_admin_can_create_active_admin_user_with_checkboxes(self):
-        response = self.client.get(reverse("usuario_novo"))
+        response = self.client.get(reverse("cliente_cadastro"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="is_staff"')
-        self.assertContains(response, 'name="is_active"')
+        self.assertContains(response, 'name="ativo"')
+        self.assertNotContains(response, 'name="username"')
 
         response = self.client.post(
-            reverse("usuario_novo"),
+            reverse("cliente_cadastro"),
             {
-                "username": "novo_admin",
-                "first_name": "Novo",
-                "last_name": "Admin",
+                "nome": "Novo Admin",
                 "email": "novo.admin@example.com",
                 "telefone": "11777777777",
-                "password1": "SenhaForte123!",
-                "password2": "SenhaForte123!",
+                "password": "123456",
                 "is_staff": "on",
-                "is_active": "on",
+                "ativo": "on",
             },
         )
 
         self.assertRedirects(response, reverse("dashboard"))
         User = get_user_model()
-        novo_admin = User.objects.get(username="novo_admin")
+        novo_admin = User.objects.get(email="novo.admin@example.com")
         self.assertTrue(novo_admin.is_staff)
         self.assertTrue(novo_admin.is_active)
 
@@ -106,8 +114,33 @@ class CorePageSmokeTests(TestCase):
         response = self.client.get(reverse("cliente_novo"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="nome"')
+        self.assertContains(response, 'name="email"')
+        self.assertContains(response, 'name="telefone"')
+        self.assertContains(response, 'name="password"')
+        self.assertContains(response, 'name="ativo"')
         self.assertContains(response, 'name="is_staff"')
+        self.assertNotContains(response, 'name="username"')
+        self.assertNotContains(response, 'name="observacoes"')
         self.assertFalse(response.context["form"]["is_staff"].value())
+
+    def test_admin_client_form_creates_linked_login_account(self):
+        response = self.client.post(
+            reverse("cliente_novo"),
+            {
+                "nome": "Cliente Novo",
+                "email": "cliente.novo@example.com",
+                "telefone": "11922223333",
+                "password": "123456",
+                "ativo": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("cliente_list"))
+        cliente = Cliente.objects.get(email="cliente.novo@example.com")
+        self.assertIsNotNone(cliente.usuario)
+        self.assertTrue(cliente.usuario.check_password("123456"))
+        self.assertFalse(cliente.usuario.is_staff)
 
     def test_client_admin_checkbox_updates_user_access(self):
         User = get_user_model()
@@ -132,7 +165,6 @@ class CorePageSmokeTests(TestCase):
                 "nome": cliente.nome,
                 "email": cliente.email,
                 "telefone": cliente.telefone,
-                "observacoes": "",
                 "ativo": "on",
                 "is_staff": "on",
             },
@@ -151,7 +183,6 @@ class CorePageSmokeTests(TestCase):
                 "nome": cliente.nome,
                 "email": cliente.email,
                 "telefone": cliente.telefone,
-                "observacoes": "",
                 "ativo": "on",
             },
         )
@@ -160,7 +191,86 @@ class CorePageSmokeTests(TestCase):
         usuario.refresh_from_db()
         self.assertFalse(usuario.is_staff)
 
-    def test_editing_client_updates_login_username_and_user_data(self):
+    def test_editing_client_without_password_keeps_current_password(self):
+        User = get_user_model()
+        usuario = User.objects.create_user(
+            username="senha_preservada",
+            password="senha123",
+            email="senha@example.com",
+        )
+        cliente = Cliente.objects.create(
+            usuario=usuario,
+            nome="Senha Preservada",
+            email="senha@example.com",
+            telefone="11933334444",
+        )
+
+        response = self.client.post(
+            reverse("cliente_editar", args=[cliente.pk]),
+            {
+                "nome": "Nome Alterado",
+                "email": cliente.email,
+                "telefone": cliente.telefone,
+                "ativo": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("cliente_list"))
+        usuario.refresh_from_db()
+        self.assertTrue(usuario.check_password("senha123"))
+
+    def test_editing_client_rejects_duplicate_phone(self):
+        Cliente.objects.create(
+            nome="Telefone Antigo",
+            email="outro@example.com",
+            telefone=self.cliente.telefone,
+        )
+
+        response = self.client.post(
+            reverse("cliente_editar", args=[self.cliente.pk]),
+            {
+                "nome": "Joao Atualizado",
+                "email": self.cliente.email,
+                "telefone": self.cliente.telefone,
+                "ativo": "on",
+                "is_staff": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "telefone",
+            "Já existe uma conta cadastrada com este telefone.",
+        )
+        self.cliente.refresh_from_db()
+        self.assertEqual(self.cliente.nome, "Joao Mendes")
+
+    def test_client_form_rejects_duplicate_email(self):
+        Cliente.objects.create(
+            nome="Email Antigo",
+            email="duplicado@example.com",
+            telefone="11977777777",
+        )
+
+        response = self.client.post(
+            reverse("cliente_editar", args=[self.cliente.pk]),
+            {
+                "nome": "Joao Atualizado",
+                "email": "duplicado@example.com",
+                "telefone": self.cliente.telefone,
+                "ativo": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "email",
+            "Já existe uma conta cadastrada com este e-mail.",
+        )
+
+    def test_editing_client_updates_data_password_and_login_identifiers(self):
         User = get_user_model()
         usuario = User.objects.create_user(
             username="usuario_antigo",
@@ -179,33 +289,44 @@ class CorePageSmokeTests(TestCase):
         response = self.client.post(
             reverse("cliente_editar", args=[cliente.pk]),
             {
-                "username": "usuario_novo",
                 "nome": "Nome Atualizado",
                 "email": "novo@example.com",
                 "telefone": "11444444444",
-                "observacoes": "",
+                "password": "654321",
                 "ativo": "on",
             },
         )
 
         self.assertRedirects(response, reverse("cliente_list"))
+        cliente.refresh_from_db()
         usuario.refresh_from_db()
-        self.assertEqual(usuario.username, "usuario_novo")
+        self.assertEqual(cliente.nome, "Nome Atualizado")
+        self.assertEqual(cliente.email, "novo@example.com")
+        self.assertEqual(cliente.telefone, "11444444444")
+        self.assertEqual(usuario.username, "usuario_antigo")
         self.assertEqual(usuario.first_name, "Nome")
         self.assertEqual(usuario.last_name, "Atualizado")
         self.assertEqual(usuario.email, "novo@example.com")
+        self.assertTrue(usuario.check_password("654321"))
 
         self.client.logout()
         response = self.client.post(
             reverse("login"),
-            {"username": "usuario_antigo", "password": "cliente123"},
+            {"identificador": "antigo@example.com", "password": "cliente123"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.wsgi_request.user.is_authenticated)
 
         response = self.client.post(
             reverse("login"),
-            {"username": "usuario_novo", "password": "cliente123"},
+            {"identificador": "novo@example.com", "password": "654321"},
+        )
+        self.assertRedirects(response, reverse("agendar"))
+
+        self.client.logout()
+        response = self.client.post(
+            reverse("login"),
+            {"identificador": "(11) 44444-4444", "password": "654321"},
         )
         self.assertRedirects(response, reverse("agendar"))
 
@@ -227,11 +348,9 @@ class CorePageSmokeTests(TestCase):
         response = self.client.post(
             reverse("cliente_editar", args=[cliente.pk]),
             {
-                "username": usuario.username,
                 "nome": cliente.nome,
                 "email": cliente.email,
                 "telefone": cliente.telefone,
-                "observacoes": "",
             },
         )
 
@@ -242,18 +361,50 @@ class CorePageSmokeTests(TestCase):
         self.client.logout()
         response = self.client.post(
             reverse("login"),
-            {"username": "cliente_ativo", "password": "cliente123"},
+            {"identificador": "cliente@example.com", "password": "cliente123"},
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Este usuário está inativo")
+        self.assertContains(response, "Este cliente está inativo")
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_registration_rejects_short_password_and_invalid_email(self):
+        self.client.logout()
+
+        response = self.client.post(
+            reverse("cliente_cadastro"),
+            {
+                "nome": "Cliente Teste",
+                "email": "email-invalido",
+                "telefone": "11911112222",
+                "password": "12345",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "email", "Informe um endereço de email válido.")
+        self.assertFormError(
+            response.context["form"],
+            "password",
+            "Certifique-se de que o valor tenha no mínimo 6 caracteres (ele possui 5).",
+        )
+
+    def test_login_does_not_accept_internal_username(self):
+        self.client.logout()
+
+        response = self.client.post(
+            reverse("login"),
+            {"identificador": "admin", "password": "admin123"},
+        )
+
+        self.assertEqual(response.status_code, 200)
         self.assertFalse(response.wsgi_request.user.is_authenticated)
 
     def test_anonymous_user_accesses_only_login_and_registration(self):
         self.client.logout()
 
         self.assertEqual(self.client.get(reverse("login")).status_code, 200)
-        self.assertEqual(self.client.get(reverse("usuario_novo")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("cliente_cadastro")).status_code, 200)
 
         response = self.client.get(reverse("dashboard"))
         self.assertRedirects(
@@ -312,7 +463,7 @@ class CorePageSmokeTests(TestCase):
         self.client.force_login(usuario)
 
         self.assertEqual(self.client.get(reverse("login")).status_code, 200)
-        self.assertEqual(self.client.get(reverse("usuario_novo")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("cliente_cadastro")).status_code, 200)
 
         response = self.client.get(reverse("agendar"))
         self.assertRedirects(
@@ -335,6 +486,141 @@ class CorePageSmokeTests(TestCase):
         self.assertIn("Joao Mendes", html)
         self.assertIn("Corte", html)
         self.assertIn("Carlos", html)
+        self.assertContains(
+            response,
+            reverse("agendamento_concluir", args=[self.agendamento.pk]),
+        )
+
+    def test_staff_can_mark_appointment_as_completed(self):
+        response = self.client.post(
+            reverse("agendamento_concluir", args=[self.agendamento.pk])
+        )
+
+        self.assertRedirects(response, reverse("agendamento_list"))
+        self.agendamento.refresh_from_db()
+        self.assertEqual(self.agendamento.status, Agendamento.STATUS_CONCLUIDO)
+
+        response = self.client.get(
+            reverse("agendamento_concluir", args=[self.agendamento.pk])
+        )
+        self.assertEqual(response.status_code, 405)
+
+    def test_professional_form_saves_selected_services(self):
+        barba = Servico.objects.create(
+            nome="Barba",
+            preco="35.00",
+            duracao_minutos=30,
+        )
+
+        response = self.client.post(
+            reverse("profissional_editar", args=[self.profissional.pk]),
+            {
+                "nome": self.profissional.nome,
+                "especialidade": self.profissional.especialidade,
+                "telefone": "11955556666",
+                "email": "carlos@example.com",
+                "servicos": [self.servico.pk, barba.pk],
+                "ativo": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("profissional_list"))
+        self.assertEqual(
+            set(self.profissional.servicos.values_list("pk", flat=True)),
+            {self.servico.pk, barba.pk},
+        )
+
+    def test_professional_form_rejects_duplicate_email(self):
+        Profissional.objects.create(
+            nome="Outro Profissional",
+            email="carlos@example.com",
+            telefone="11911110000",
+        )
+
+        response = self.client.post(
+            reverse("profissional_editar", args=[self.profissional.pk]),
+            {
+                "nome": self.profissional.nome,
+                "especialidade": self.profissional.especialidade,
+                "telefone": "11955556666",
+                "email": "carlos@example.com",
+                "servicos": [self.servico.pk],
+                "ativo": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "email",
+            "Já existe um profissional cadastrado com este e-mail.",
+        )
+
+    def test_professional_form_rejects_duplicate_phone(self):
+        Profissional.objects.create(
+            nome="Outro Profissional",
+            email="outro.profissional@example.com",
+            telefone="(11) 95555-6666",
+        )
+
+        response = self.client.post(
+            reverse("profissional_editar", args=[self.profissional.pk]),
+            {
+                "nome": self.profissional.nome,
+                "especialidade": self.profissional.especialidade,
+                "telefone": "11955556666",
+                "email": "carlos@example.com",
+                "servicos": [self.servico.pk],
+                "ativo": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "telefone",
+            "Já existe um profissional cadastrado com este telefone.",
+        )
+
+    def test_professional_form_uploads_photo(self):
+        foto = SimpleUploadedFile(
+            "carlos.jpg",
+            b"fake image content",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            reverse("profissional_editar", args=[self.profissional.pk]),
+            {
+                "nome": self.profissional.nome,
+                "especialidade": self.profissional.especialidade,
+                "telefone": "11955556666",
+                "email": "carlos@example.com",
+                "foto": foto,
+                "servicos": [self.servico.pk],
+                "ativo": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("profissional_list"))
+        self.profissional.refresh_from_db()
+        self.assertTrue(self.profissional.foto.name.startswith("profissionais/"))
+        self.assertTrue(self.profissional.foto.name.endswith(".jpg"))
+
+    def test_agendar_page_shows_professional_photo_when_available(self):
+        self.profissional.foto = "profissionais/carlos.jpg"
+        self.profissional.save(update_fields=["foto"])
+
+        response = self.client.get(
+            reverse("agendar"),
+            {"servico": self.servico.pk, "profissional": self.profissional.pk},
+        )
+
+        self.assertContains(response, "/media/profissionais/carlos.jpg")
+        self.assertContains(response, 'class="professional-avatar-image"')
+        self.assertContains(response, 'width="56"')
+        self.assertContains(response, 'height="56"')
+        self.assertContains(response, 'alt="Foto de Carlos"')
 
     def test_dashboard_shows_only_todays_non_cancelled_appointments(self):
         hoje = timezone.localdate()
@@ -615,10 +901,60 @@ class CorePageSmokeTests(TestCase):
         )
         self.assertEqual(list(response.context["agendamentos"]), [self.agendamento])
 
+    def test_deleting_client_with_appointments_shows_warning(self):
+        response = self.client.post(
+            reverse("cliente_excluir", args=[self.cliente.pk]),
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("cliente_list"))
+        self.assertTrue(Cliente.objects.filter(pk=self.cliente.pk).exists())
+        self.assertContains(response, "Não é possível excluir este cliente")
+
+    def test_deleting_client_without_appointments_removes_linked_access_account(self):
+        User = get_user_model()
+        conta = User.objects.create_user(
+            username="cliente_sem_agenda",
+            password="cliente123",
+            email="sem.agenda@example.com",
+        )
+        cliente = Cliente.objects.create(
+            usuario=conta,
+            nome="Cliente Sem Agenda",
+            email="sem.agenda@example.com",
+            telefone="11910101010",
+        )
+
+        response = self.client.post(reverse("cliente_excluir", args=[cliente.pk]))
+
+        self.assertRedirects(response, reverse("cliente_list"))
+        self.assertFalse(Cliente.objects.filter(pk=cliente.pk).exists())
+        self.assertFalse(User.objects.filter(pk=conta.pk).exists())
+
+    def test_deleting_service_with_appointments_shows_warning(self):
+        response = self.client.post(
+            reverse("servico_excluir", args=[self.servico.pk]),
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("servico_list"))
+        self.assertTrue(Servico.objects.filter(pk=self.servico.pk).exists())
+        self.assertContains(response, "Não é possível excluir este serviço")
+
+    def test_deleting_professional_with_appointments_shows_warning(self):
+        response = self.client.post(
+            reverse("profissional_excluir", args=[self.profissional.pk]),
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("profissional_list"))
+        self.assertTrue(Profissional.objects.filter(pk=self.profissional.pk).exists())
+        self.assertContains(response, "Não é possível excluir este profissional")
+
     def test_main_pages_render(self):
         urls = [
             reverse("dashboard"),
-            reverse("usuario_novo"),
+            reverse("cliente_cadastro"),
             reverse("cliente_list"),
             reverse("cliente_novo"),
             reverse("cliente_editar", args=[self.cliente.pk]),

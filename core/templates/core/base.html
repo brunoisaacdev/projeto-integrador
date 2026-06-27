@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}Premium Barbearia{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=21" />
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=23" />
   </head>
   <body>
     <div class="layout">
@@ -36,7 +36,7 @@
         {% endwith %}
 
         <div class="sidebar-footer">
-          <div>{{ request.user.get_username|default:"Usuário" }}</div>
+          <div>{{ request.user.get_full_name|default:request.user.email|default:"Cliente" }}</div>
           <form action="{% url 'logout' %}" method="post" class="logout-form">
             {% csrf_token %}
             <button type="submit" class="login-link logout-button">Sair</button>

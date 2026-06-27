@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
@@ -52,6 +53,14 @@ class Profissional(models.Model):
     especialidade = models.CharField("Especialidade", max_length=120, blank=True)
     telefone = models.CharField("Telefone", max_length=20, blank=True)
     email = models.EmailField("E-mail", blank=True)
+    foto = models.FileField(
+        "Foto",
+        upload_to="profissionais/",
+        blank=True,
+        validators=[
+            FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])
+        ],
+    )
     ativo = models.BooleanField("Ativo", default=True)
     # Serviços que o profissional pode executar (opcional)
     servicos = models.ManyToManyField(Servico, blank=True, related_name="profissionais")
@@ -141,3 +150,7 @@ class Agendamento(models.Model):
         self.cancelado_em = timezone.now()
         self.motivo_cancelamento = motivo
         self.save(update_fields=["status", "cancelado_em", "motivo_cancelamento"])
+
+    def concluir(self):
+        self.status = self.STATUS_CONCLUIDO
+        self.save(update_fields=["status"])

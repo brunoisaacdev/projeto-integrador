@@ -1,7 +1,11 @@
-from django import forms
-from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from uuid import uuid4
 
+from django import forms
+from django.contrib.auth import authenticate, get_user_model
+from django.db import transaction
+from django.db.models import Q
+
+from .auth_utils import normalizar_telefone, contas_por_identificador
 from .models import Agendamento, Cliente, Profissional, Servico
 
 
@@ -12,7 +16,9 @@ class BootstrapModelForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             widget = field.widget
-            if isinstance(widget, (forms.CheckboxInput,)):
+            if isinstance(widget, forms.CheckboxSelectMultiple):
+                continue
+            if isinstance(widget, forms.CheckboxInput):
                 widget.attrs.setdefault("class", "form-check-input")
             elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
                 widget.attrs.setdefault("class", "form-select")
@@ -21,11 +27,12 @@ class BootstrapModelForm(forms.ModelForm):
 
 
 class ClienteForm(BootstrapModelForm):
-    username = forms.CharField(
-        label="Usuário de acesso",
-        max_length=150,
-        required=False,
-        help_text="Nome utilizado pelo cliente para entrar no sistema.",
+    password = forms.CharField(
+        label="Senha",
+        min_length=6,
+        strip=False,
+        widget=forms.PasswordInput,
+        help_text="Use no mínimo 6 caracteres.",
     )
     is_staff = forms.BooleanField(
         label="Administrador",
@@ -36,62 +43,84 @@ class ClienteForm(BootstrapModelForm):
 
     class Meta:
         model = Cliente
-        fields = ["nome", "email", "telefone", "observacoes", "ativo"]
-        widgets = {
-            "observacoes": forms.Textarea(attrs={"rows": 3}),
-        }
+        fields = ["nome", "email", "telefone", "ativo"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, allow_staff_fields=True, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance.usuario_id:
-            self.fields["username"].initial = self.instance.usuario.get_username()
-            self.fields["is_staff"].initial = self.instance.usuario.is_staff
-        else:
-            self.fields.pop("username", None)
+        self.fields["email"].required = True
+        self.fields["telefone"].required = True
 
-    def clean_username(self):
-        usuario = self.instance.usuario if self.instance.usuario_id else None
-        username = self.cleaned_data.get("username", "").strip()
+        if self.instance.usuario_id:
+            self.fields["is_staff"].initial = self.instance.usuario.is_staff
+            self.fields["password"].required = False
+            self.fields["password"].help_text = (
+                "Deixe em branco para manter a senha atual ou informe ao menos 6 caracteres."
+            )
+        else:
+            self.fields["password"].required = True
+
+        if not allow_staff_fields:
+            self.fields.pop("is_staff", None)
+            self.fields.pop("ativo", None)
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        clientes = Cliente.objects.filter(email__iexact=email)
+        contas = get_user_model()._default_manager.filter(email__iexact=email)
+        if self.instance.pk:
+            clientes = clientes.exclude(pk=self.instance.pk)
+        if self.instance.usuario_id:
+            contas = contas.exclude(pk=self.instance.usuario_id)
+
+        if clientes.exists() or contas.exists():
+            raise forms.ValidationError("Já existe uma conta cadastrada com este e-mail.")
+        return email
+
+    def clean_telefone(self):
+        telefone = self.cleaned_data["telefone"].strip()
+        telefone_normalizado = normalizar_telefone(telefone)
+        if not telefone_normalizado:
+            raise forms.ValidationError("Informe um telefone válido.")
+
+        for cliente in Cliente.objects.exclude(pk=self.instance.pk):
+            if normalizar_telefone(cliente.telefone) == telefone_normalizado:
+                raise forms.ValidationError(
+                    "Já existe uma conta cadastrada com este telefone."
+                )
+        return telefone
+
+    def _novo_username_interno(self):
+        User = get_user_model()
+        while True:
+            username = f"cliente_{uuid4().hex}"
+            if not User._default_manager.filter(username=username).exists():
+                return username
+
+    @transaction.atomic
+    def save(self, commit=True):
+        cliente = super().save(commit=False)
+        usuario = cliente.usuario if cliente.usuario_id else None
+        senha = self.cleaned_data.get("password")
+        is_staff = self.cleaned_data.get("is_staff", False)
+        ativo = self.cleaned_data.get("ativo", True)
 
         if usuario is None:
-            return username
-        if not username:
-            return usuario.get_username()
+            usuario = get_user_model()(username=self._novo_username_interno())
 
-        username_field = usuario.USERNAME_FIELD
-        username_em_uso = (
-            get_user_model()
-            ._default_manager.filter(**{f"{username_field}__iexact": username})
-            .exclude(pk=usuario.pk)
-            .exists()
-        )
-        if username_em_uso:
-            raise forms.ValidationError("Este usuário de acesso já está em uso.")
+        partes_nome = cliente.nome.strip().split(maxsplit=1)
+        usuario.first_name = partes_nome[0] if partes_nome else ""
+        usuario.last_name = partes_nome[1] if len(partes_nome) > 1 else ""
+        usuario.email = cliente.email
+        usuario.is_staff = is_staff
+        usuario.is_active = ativo
+        if senha:
+            usuario.set_password(senha)
 
-        return username
-
-    def save(self, commit=True):
-        cliente = super().save(commit=commit)
-
-        if commit and cliente.usuario_id:
-            usuario = cliente.usuario
-            partes_nome = cliente.nome.strip().split(maxsplit=1)
-            usuario.first_name = partes_nome[0] if partes_nome else ""
-            usuario.last_name = partes_nome[1] if len(partes_nome) > 1 else ""
-            usuario.email = cliente.email
-            setattr(usuario, usuario.USERNAME_FIELD, self.cleaned_data["username"])
-            usuario.is_staff = self.cleaned_data["is_staff"]
-            usuario.is_active = cliente.ativo
-            usuario.save(
-                update_fields=[
-                    usuario.USERNAME_FIELD,
-                    "first_name",
-                    "last_name",
-                    "email",
-                    "is_staff",
-                    "is_active",
-                ]
-            )
+        if commit:
+            usuario.save()
+            cliente.usuario = usuario
+            cliente.ativo = ativo
+            cliente.save()
 
         return cliente
 
@@ -106,12 +135,51 @@ class ServicoForm(BootstrapModelForm):
 
 
 class ProfissionalForm(BootstrapModelForm):
+    servicos = forms.ModelMultipleChoiceField(
+        label="Serviços realizados",
+        queryset=Servico.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+        error_messages={"required": "Selecione ao menos um serviço."},
+    )
+
     class Meta:
         model = Profissional
-        fields = ["nome", "especialidade", "telefone", "email", "servicos", "ativo"]
-        widgets = {
-            "servicos": forms.SelectMultiple(attrs={"size": 5}),
-        }
+        fields = ["nome", "especialidade", "telefone", "email", "foto", "servicos", "ativo"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        servicos = Servico.objects.filter(ativo=True)
+        if self.instance.pk:
+            servicos = Servico.objects.filter(
+                Q(ativo=True) | Q(profissionais=self.instance)
+            )
+        self.fields["servicos"].queryset = servicos.distinct().order_by("nome")
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email", "").strip().lower()
+        if not email:
+            return email
+
+        duplicados = Profissional.objects.filter(email__iexact=email)
+        if self.instance.pk:
+            duplicados = duplicados.exclude(pk=self.instance.pk)
+        if duplicados.exists():
+            raise forms.ValidationError("Já existe um profissional cadastrado com este e-mail.")
+        return email
+
+    def clean_telefone(self):
+        telefone = self.cleaned_data.get("telefone", "").strip()
+        telefone_normalizado = normalizar_telefone(telefone)
+        if not telefone_normalizado:
+            return telefone
+
+        for profissional in Profissional.objects.exclude(pk=self.instance.pk):
+            if normalizar_telefone(profissional.telefone) == telefone_normalizado:
+                raise forms.ValidationError(
+                    "Já existe um profissional cadastrado com este telefone."
+                )
+        return telefone
 
 
 class AgendamentoForm(BootstrapModelForm):
@@ -215,87 +283,68 @@ class AgendamentoFiltroForm(forms.Form):
     )
 
 
-class UsuarioCadastroForm(UserCreationForm):
-    first_name = forms.CharField(label="Nome", max_length=150, required=False)
-    last_name = forms.CharField(label="Sobrenome", max_length=150, required=False)
-    email = forms.EmailField(label="E-mail", required=False)
-    telefone = forms.CharField(label="Telefone", max_length=20, required=False)
-    is_staff = forms.BooleanField(
-        label="Usuário administrador",
-        required=False,
-        help_text="Permite acessar todas as telas administrativas do sistema.",
-    )
-    is_active = forms.BooleanField(label="Usuário ativo", required=False, initial=True)
-
-    class Meta:
-        model = get_user_model()
-        fields = [
-            "username",
-            "first_name",
-            "last_name",
-            "email",
-            "password1",
-            "password2",
-            "is_staff",
-            "is_active",
-        ]
-
+class ClienteCadastroForm(ClienteForm):
     def __init__(self, *args, allow_staff_fields=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not allow_staff_fields:
-            self.fields.pop("is_staff", None)
-            self.fields.pop("is_active", None)
-
-        for field in self.fields.values():
-            widget = field.widget
-            if isinstance(widget, forms.CheckboxInput):
-                widget.attrs.setdefault("class", "form-check-input")
-            else:
-                widget.attrs.setdefault("class", "form-control")
-
-    def save(self, commit=True):
-        user = super().save(commit=commit)
-        if commit:
-            nome = user.get_full_name().strip() or user.username
-            Cliente.objects.get_or_create(
-                usuario=user,
-                defaults={
-                    "nome": nome,
-                    "email": user.email,
-                    "telefone": self.cleaned_data.get("telefone", ""),
-                    "ativo": user.is_active,
-                },
-            )
-        return user
+        super().__init__(
+            *args,
+            allow_staff_fields=allow_staff_fields,
+            **kwargs,
+        )
 
 
-class SistemaAuthenticationForm(AuthenticationForm):
+class SistemaAuthenticationForm(forms.Form):
+    identificador = forms.CharField(
+        label="E-mail ou telefone",
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "username",
+                "autofocus": True,
+                "placeholder": "E-mail ou telefone",
+            }
+        ),
+    )
+    password = forms.CharField(
+        label="Senha",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+    )
     error_messages = {
-        **AuthenticationForm.error_messages,
-        "inactive": "Este usuário está inativo. Entre em contato com o administrador.",
+        "invalid_login": (
+            "E-mail, telefone ou senha inválidos. Verifique os dados informados."
+        ),
+        "inactive": "Este cliente está inativo. Entre em contato com o administrador.",
     }
 
+    def __init__(self, request=None, *args, **kwargs):
+        self.request = request
+        self.user_cache = None
+        super().__init__(*args, **kwargs)
+
     def clean(self):
-        try:
-            return super().clean()
-        except forms.ValidationError as erro:
-            username = self.cleaned_data.get("username")
-            password = self.cleaned_data.get("password")
+        cleaned_data = super().clean()
+        identificador = cleaned_data.get("identificador")
+        password = cleaned_data.get("password")
 
-            if username and password:
-                try:
-                    usuario = get_user_model()._default_manager.get_by_natural_key(username)
-                except get_user_model().DoesNotExist:
-                    usuario = None
+        if identificador and password:
+            self.user_cache = authenticate(
+                self.request,
+                username=identificador,
+                password=password,
+            )
 
-                if (
-                    usuario is not None
-                    and not usuario.is_active
-                    and usuario.check_password(password)
-                ):
-                    raise forms.ValidationError(
-                        self.error_messages["inactive"],
-                        code="inactive",
-                    )
+            if self.user_cache is None:
+                for conta in contas_por_identificador(identificador):
+                    if not conta.is_active and conta.check_password(password):
+                        raise forms.ValidationError(
+                            self.error_messages["inactive"],
+                            code="inactive",
+                        )
+                raise forms.ValidationError(
+                    self.error_messages["invalid_login"],
+                    code="invalid_login",
+                )
 
-            raise erro
+        return cleaned_data
+
+    def get_user(self):
+        return self.user_cache

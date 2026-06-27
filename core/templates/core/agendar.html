@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agendar Horário | Premium Barbearia</title>
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=18" />
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=23" />
   </head>
   <body class="appointments-page">
     <main class="appointments-shell appointments-shell-narrow">
@@ -60,14 +60,14 @@
             <span class="appointment-icon">1</span>
             <div>
               <h2>Cliente</h2>
-              <p>O agendamento será feito para o usuário logado</p>
+              <p>O agendamento será feito para o cliente logado</p>
             </div>
           </div>
           <div class="logged-client">
             <div class="logged-client-avatar">{{ cliente.nome|first|upper }}</div>
             <div>
               <strong>{{ cliente.nome }}</strong>
-              <span>{{ cliente.email|default:request.user.username }}{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}</span>
+              <span>{{ cliente.email|default:cliente.telefone }}{% if cliente.email and cliente.telefone %} · {{ cliente.telefone }}{% endif %}</span>
             </div>
           </div>
         </section>
@@ -113,7 +113,20 @@
             {% for profissional in profissionais %}
               <label class="professional-option {% if profissional_selecionado and profissional.pk == profissional_selecionado.pk %}active{% endif %}">
                 <input data-refresh type="radio" name="profissional" value="{{ profissional.pk }}" hidden {% if profissional_selecionado and profissional.pk == profissional_selecionado.pk %}checked{% endif %} required />
-                <span class="professional-avatar">{{ profissional.nome|first|upper }}</span>
+                <span class="professional-avatar">
+                  {% if profissional.foto %}
+                    <img
+                      class="professional-avatar-image"
+                      src="{{ profissional.foto.url }}"
+                      alt="Foto de {{ profissional.nome }}"
+                      width="56"
+                      height="56"
+                      loading="lazy"
+                    />
+                  {% else %}
+                    {{ profissional.nome|first|upper }}
+                  {% endif %}
+                </span>
                 <strong>{{ profissional.nome }}</strong>
                 <small>{{ profissional.especialidade|default:"Profissional" }}</small>
               </label>

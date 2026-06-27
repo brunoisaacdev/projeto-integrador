@@ -4,8 +4,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cadastro de Usuário | Premium Barbearia</title>
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=18" />
+    <title>Cadastro de Cliente | Premium Barbearia</title>
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=23" />
   </head>
   <body>
     <div class="login-wrap">
@@ -27,8 +27,8 @@
 
       <main class="login-form-side">
         <div class="login-card register-card">
-          <h1>Novo usuário</h1>
-          <p class="sub">Crie uma conta de acesso ao sistema</p>
+          <h1>Novo cliente</h1>
+          <p class="sub">Cadastre os dados pessoais e de acesso</p>
 
           {% if messages %}
             {% for message in messages %}
@@ -42,18 +42,15 @@
 
           <form method="post">
             {% csrf_token %}
-            <div class="form-grid">
-              {% include "core/_form_field.html" with field=form.username only %}
+            <div class="form-grid account-form-grid">
+              {% include "core/_form_field.html" with field=form.nome full=True only %}
               {% include "core/_form_field.html" with field=form.email only %}
               {% include "core/_form_field.html" with field=form.telefone only %}
-              {% include "core/_form_field.html" with field=form.first_name only %}
-              {% include "core/_form_field.html" with field=form.last_name only %}
-              {% include "core/_form_field.html" with field=form.password1 only %}
-              {% include "core/_form_field.html" with field=form.password2 only %}
+              {% include "core/_form_field.html" with field=form.password full=True only %}
 
               {% if allow_staff_fields %}
-                {% include "core/_form_field.html" with field=form.is_staff full=True only %}
-                {% include "core/_form_field.html" with field=form.is_active full=True only %}
+                {% include "core/_form_field.html" with field=form.ativo only %}
+                {% include "core/_form_field.html" with field=form.is_staff only %}
               {% endif %}
             </div>
 

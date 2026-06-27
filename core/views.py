@@ -4,7 +4,10 @@ from datetime import datetime, time, timedelta
 from django.contrib import messages
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db import transaction
 from django.db.models import Count, Q, Sum
+from django.db.models.deletion import ProtectedError
+from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -19,7 +22,7 @@ from .forms import (
     ProfissionalForm,
     ServicoForm,
     SistemaAuthenticationForm,
-    UsuarioCadastroForm,
+    ClienteCadastroForm,
 )
 from .models import Agendamento, Cliente, Profissional, Servico
 
@@ -45,7 +48,7 @@ MESES_PT = [
 
 
 def is_staff(user):
-    """Somente usuários do painel administrativo (is_staff)."""
+    """Somente contas administrativas (is_staff)."""
     return user.is_active and user.is_staff
 
 
@@ -64,7 +67,7 @@ def cliente_do_usuario(user):
     try:
         return user.cliente
     except Cliente.DoesNotExist:
-        nome = user.get_full_name().strip() or user.username
+        nome = user.get_full_name().strip() or user.email or "Cliente"
         cliente = None
         if user.email:
             cliente = Cliente.objects.filter(
@@ -97,8 +100,7 @@ def profissionais_disponiveis_para(servico):
         return Profissional.objects.none()
 
     return (
-        Profissional.objects.filter(ativo=True)
-        .filter(Q(servicos=servico) | Q(servicos__isnull=True))
+        Profissional.objects.filter(ativo=True, servicos=servico)
         .distinct()
         .order_by("nome")
     )
@@ -404,23 +406,23 @@ class SistemaLoginView(LoginView):
         return reverse_lazy("agendar")
 
 
-def usuario_form(request):
+def cliente_cadastro(request):
     allow_staff_fields = request.user.is_authenticated and request.user.is_staff
-    form = UsuarioCadastroForm(
+    form = ClienteCadastroForm(
         request.POST or None,
         allow_staff_fields=allow_staff_fields,
     )
 
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Usuário cadastrado com sucesso.")
+        messages.success(request, "Cliente cadastrado com sucesso.")
         if allow_staff_fields:
             return redirect("dashboard")
         return redirect("login")
 
     return render(
         request,
-        "core/usuario_form.html",
+        "core/cliente_cadastro.html",
         {"form": form, "allow_staff_fields": allow_staff_fields},
     )
 
@@ -515,7 +517,11 @@ def cliente_list(request):
 @login_required
 def cliente_form(request, pk=None):
     cliente = get_object_or_404(Cliente, pk=pk) if pk else None
-    form = ClienteForm(request.POST or None, instance=cliente)
+    form = ClienteForm(
+        request.POST or None,
+        instance=cliente,
+        allow_staff_fields=True,
+    )
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Cliente salvo com sucesso.")
@@ -527,8 +533,20 @@ def cliente_form(request, pk=None):
 def cliente_delete(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
     if request.method == "POST":
-        cliente.delete()
-        messages.success(request, "Cliente removido.")
+        conta = cliente.usuario if cliente.usuario_id else None
+        try:
+            with transaction.atomic():
+                cliente.delete()
+                if conta:
+                    conta.delete()
+        except ProtectedError:
+            messages.error(
+                request,
+                "Não é possível excluir este cliente porque existem agendamentos vinculados. "
+                "Inative o cliente para bloquear o acesso sem perder o histórico.",
+            )
+        else:
+            messages.success(request, "Cliente removido.")
         return redirect("cliente_list")
     return render(
         request,
@@ -561,8 +579,18 @@ def servico_form(request, pk=None):
 def servico_delete(request, pk):
     servico = get_object_or_404(Servico, pk=pk)
     if request.method == "POST":
-        servico.delete()
-        messages.success(request, "Serviço removido.")
+        removido = False
+        try:
+            servico.delete()
+            removido = True
+        except ProtectedError:
+            messages.error(
+                request,
+                "Não é possível excluir este serviço porque existem agendamentos vinculados. "
+                "Inative o serviço para manter o histórico.",
+            )
+        if removido:
+            messages.success(request, "Serviço removido.")
         return redirect("servico_list")
     return render(
         request,
@@ -584,7 +612,11 @@ def profissional_list(request):
 @staff_required
 def profissional_form(request, pk=None):
     profissional = get_object_or_404(Profissional, pk=pk) if pk else None
-    form = ProfissionalForm(request.POST or None, instance=profissional)
+    form = ProfissionalForm(
+        request.POST or None,
+        request.FILES or None,
+        instance=profissional,
+    )
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Profissional salvo com sucesso.")
@@ -601,8 +633,18 @@ def profissional_form(request, pk=None):
 def profissional_delete(request, pk):
     profissional = get_object_or_404(Profissional, pk=pk)
     if request.method == "POST":
-        profissional.delete()
-        messages.success(request, "Profissional removido.")
+        removido = False
+        try:
+            profissional.delete()
+            removido = True
+        except ProtectedError:
+            messages.error(
+                request,
+                "Não é possível excluir este profissional porque existem agendamentos vinculados. "
+                "Inative o profissional para manter o histórico.",
+            )
+        if removido:
+            messages.success(request, "Profissional removido.")
         return redirect("profissional_list")
     return render(
         request,
@@ -677,3 +719,18 @@ def agendamento_cancelar(request, pk):
         "core/agendamento_cancelar.html",
         {"form": form, "agendamento": agendamento},
     )
+
+
+@login_required
+@staff_required
+def agendamento_concluir(request, pk):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    agendamento = get_object_or_404(Agendamento, pk=pk)
+    if agendamento.status == Agendamento.STATUS_AGENDADO:
+        agendamento.concluir()
+        messages.success(request, "Atendimento marcado como concluído.")
+    else:
+        messages.info(request, "Somente atendimentos agendados podem ser concluídos.")
+    return redirect("agendamento_list")

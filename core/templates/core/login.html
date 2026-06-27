@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Premium Barbearia | Acesso</title>
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=5" />
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=23" />
   </head>
   <body>
     <div class="login-wrap">
@@ -47,17 +47,18 @@
             <input type="hidden" name="next" value="{{ next }}" />
 
             <div class="form-group">
-              <label for="{{ form.username.id_for_label }}">Usuário</label>
+              <label for="{{ form.identificador.id_for_label }}">E-mail ou telefone</label>
               <input
                 type="text"
-                id="{{ form.username.id_for_label }}"
-                name="{{ form.username.html_name }}"
-                value="{{ form.username.value|default_if_none:'' }}"
-                placeholder="Insira seu nome"
+                id="{{ form.identificador.id_for_label }}"
+                name="{{ form.identificador.html_name }}"
+                value="{{ form.identificador.value|default_if_none:'' }}"
+                placeholder="Informe seu e-mail ou telefone"
+                autocomplete="username"
                 required
                 autofocus
               />
-              {% for error in form.username.errors %}
+              {% for error in form.identificador.errors %}
                 <span class="form-error">{{ error }}</span>
               {% endfor %}
             </div>
@@ -83,7 +84,7 @@
 
           <div class="login-register">
             <span>Ainda não tem acesso?</span>
-            <a href="{% url 'usuario_novo' %}" class="btn btn-outline btn-block">
+            <a href="{% url 'cliente_cadastro' %}" class="btn btn-outline btn-block">
               Cadastrar-se
             </a>
           </div>
