@@ -86,7 +86,7 @@ def cliente_do_usuario(user):
         else:
             cliente.usuario = user
             cliente.ativo = True
-            if not cliente.nome:
+            if not cliente.nome:  
                 cliente.nome = nome
             if not cliente.email and user.email:
                 cliente.email = user.email
