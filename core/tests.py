@@ -505,6 +505,55 @@ class CorePageSmokeTests(TestCase):
         )
         self.assertEqual(response.status_code, 405)
 
+    def test_completed_appointment_cannot_be_edited_or_cancelled(self):
+        inicio_original = self.agendamento.inicio
+        self.agendamento.concluir()
+
+        response = self.client.get(
+            reverse("agendamento_editar", args=[self.agendamento.pk])
+        )
+        self.assertRedirects(response, reverse("agendamento_list"))
+
+        response = self.client.post(
+            reverse("agendamento_editar", args=[self.agendamento.pk]),
+            {
+                "cliente": self.cliente.pk,
+                "profissional": self.profissional.pk,
+                "servico": self.servico.pk,
+                "inicio": (inicio_original + timedelta(days=1)).strftime(
+                    "%Y-%m-%dT%H:%M"
+                ),
+                "observacoes": "Tentativa de edicao apos conclusao.",
+            },
+        )
+        self.assertRedirects(response, reverse("agendamento_list"))
+
+        response = self.client.post(
+            reverse("agendamento_cancelar", args=[self.agendamento.pk]),
+            {"motivo": "Tentativa de cancelamento apos conclusao."},
+        )
+        self.assertRedirects(response, reverse("agendamento_list"))
+
+        self.agendamento.refresh_from_db()
+        self.assertEqual(self.agendamento.status, Agendamento.STATUS_CONCLUIDO)
+        self.assertEqual(self.agendamento.inicio, inicio_original)
+        self.assertEqual(self.agendamento.observacoes, "")
+        self.assertEqual(self.agendamento.motivo_cancelamento, "")
+
+        response = self.client.get(reverse("agendamento_list"))
+        self.assertNotContains(
+            response,
+            reverse("agendamento_editar", args=[self.agendamento.pk]),
+        )
+        self.assertNotContains(
+            response,
+            reverse("agendamento_cancelar", args=[self.agendamento.pk]),
+        )
+        self.assertNotContains(
+            response,
+            reverse("agendamento_concluir", args=[self.agendamento.pk]),
+        )
+
     def test_professional_form_saves_selected_services(self):
         barba = Servico.objects.create(
             nome="Barba",
@@ -668,6 +717,43 @@ class CorePageSmokeTests(TestCase):
         self.assertEqual(response.context["total_ranking_servicos"], 2)
         self.assertContains(response, 'class="services-pie"')
         self.assertContains(response, "#7c3aed 0.00% 100.00%")
+
+    def test_dashboard_navigates_between_days(self):
+        hoje = timezone.localdate()
+        ontem = hoje - timedelta(days=1)
+        amanha = hoje + timedelta(days=1)
+        self.agendamento.inicio = timezone.make_aware(
+            datetime.combine(hoje, time(hour=10))
+        )
+        self.agendamento.save(update_fields=["inicio"])
+        agendamento_ontem = Agendamento.objects.create(
+            cliente=self.cliente,
+            profissional=self.profissional,
+            servico=self.servico,
+            inicio=timezone.make_aware(datetime.combine(ontem, time(hour=11))),
+        )
+        agendamento_amanha = Agendamento.objects.create(
+            cliente=self.cliente,
+            profissional=self.profissional,
+            servico=self.servico,
+            inicio=timezone.make_aware(datetime.combine(amanha, time(hour=12))),
+        )
+
+        response = self.client.get(reverse("dashboard"), {"data": amanha.isoformat()})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["data_selecionada"], amanha)
+        self.assertEqual(list(response.context["agendamentos_hoje"]), [agendamento_amanha])
+        self.assertEqual(response.context["qtd_hoje"], 1)
+        self.assertContains(response, "Agenda de amanhã")
+        self.assertContains(response, f"?data={hoje.isoformat()}")
+        self.assertContains(response, f"?data={(amanha + timedelta(days=1)).isoformat()}")
+
+        response = self.client.get(reverse("dashboard"), {"data": ontem.isoformat()})
+
+        self.assertEqual(response.context["data_selecionada"], ontem)
+        self.assertEqual(list(response.context["agendamentos_hoje"]), [agendamento_ontem])
+        self.assertContains(response, "Agenda de ontem")
 
     def test_agendamento_page_filters_by_client(self):
         outro_cliente = Cliente.objects.create(nome="Outro Cliente", telefone="1100000000")

@@ -164,6 +164,13 @@ a {
   margin-top: 2px;
 }
 
+.dashboard-date-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 /* ---------- Botões ---------- */
 .btn {
   display: inline-flex;
@@ -266,6 +273,28 @@ a {
   font-size: 16px;
   font-weight: 700;
   margin-bottom: 16px;
+}
+
+.dashboard-card-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.dashboard-card-heading .card-title {
+  margin-bottom: 0;
+}
+
+.dashboard-date-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
 }
 
 /* ---------- Grid de estatísticas ---------- */
@@ -2148,6 +2177,13 @@ textarea {
   }
   .main {
     padding: 20px 16px;
+  }
+  .dashboard-date-actions,
+  .dashboard-date-actions .btn {
+    width: 100%;
+  }
+  .dashboard-date-actions .btn {
+    justify-content: center;
   }
   .form-grid {
     grid-template-columns: 1fr;

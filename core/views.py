@@ -431,9 +431,25 @@ def cliente_cadastro(request):
 @staff_required
 def dashboard(request):
     hoje = timezone.localdate()
+    data_param = request.GET.get("data")
+    data_selecionada = parse_date(data_param) if data_param else hoje
+    if data_selecionada is None:
+        data_selecionada = hoje
+
+    data_anterior = data_selecionada - timedelta(days=1)
+    data_proxima = data_selecionada + timedelta(days=1)
+    if data_selecionada == hoje:
+        data_referencia = "hoje"
+    elif data_selecionada == hoje - timedelta(days=1):
+        data_referencia = "ontem"
+    elif data_selecionada == hoje + timedelta(days=1):
+        data_referencia = "amanhã"
+    else:
+        data_referencia = data_selecionada.strftime("%d/%m/%Y")
+
     agendamentos_hoje = (
         Agendamento.objects.select_related("cliente", "servico", "profissional")
-        .filter(inicio__date=hoje)
+        .filter(inicio__date=data_selecionada)
         .exclude(status=Agendamento.STATUS_CANCELADO)
         .order_by("inicio")
     )
@@ -490,6 +506,11 @@ def dashboard(request):
             status=Agendamento.STATUS_AGENDADO
         ).count(),
         "agendamentos_hoje": agendamentos_hoje,
+        "data_anterior": data_anterior.isoformat(),
+        "data_proxima": data_proxima.isoformat(),
+        "data_referencia": data_referencia,
+        "data_selecionada": data_selecionada,
+        "data_selecionada_iso": data_selecionada.isoformat(),
         "qtd_hoje": agendamentos_hoje.count(),
         "faturamento_previsto": agendamentos_hoje.aggregate(
             total=Sum("servico__preco")
@@ -694,6 +715,13 @@ def agendamento_list(request):
 @login_required
 def agendamento_form(request, pk=None):
     agendamento = get_object_or_404(Agendamento, pk=pk) if pk else None
+    if agendamento and not agendamento.pode_ser_alterado:
+        messages.info(
+            request,
+            "Agendamentos concluídos ou cancelados não podem ser editados.",
+        )
+        return redirect("agendamento_list")
+
     form = AgendamentoForm(request.POST or None, instance=agendamento)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -709,6 +737,13 @@ def agendamento_form(request, pk=None):
 @login_required
 def agendamento_cancelar(request, pk):
     agendamento = get_object_or_404(Agendamento, pk=pk)
+    if not agendamento.pode_ser_alterado:
+        messages.info(
+            request,
+            "Agendamentos concluídos ou cancelados não podem ser cancelados.",
+        )
+        return redirect("agendamento_list")
+
     form = CancelamentoForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         agendamento.cancelar(motivo=form.cleaned_data.get("motivo", ""))

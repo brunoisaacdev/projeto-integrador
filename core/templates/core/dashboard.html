@@ -6,14 +6,14 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle">Visão geral da barbearia</p>
+    <p class="page-subtitle">Visão geral da barbearia - {{ data_selecionada|date:"d/m/Y" }}</p>
   </div>
   <a href="{% url 'agendamento_list' %}" class="btn btn-primary">Agendamentos</a>
 </div>
 
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-label">Agendamentos hoje</div>
+    <div class="stat-label">Agendamentos {{ data_referencia }}</div>
     <div class="stat-value">{{ qtd_hoje }}</div>
     <div class="stat-hint">Sem horários cancelados</div>
   </div>
@@ -30,12 +30,20 @@
   <div class="stat-card">
     <div class="stat-label">Faturamento previsto</div>
     <div class="stat-value">R$ {{ faturamento_previsto|floatformat:2 }}</div>
-    <div class="stat-hint">Referente a hoje</div>
+    <div class="stat-hint">Referente a {{ data_referencia }}</div>
   </div>
 </div>
 
 <div class="card">
-  <div class="card-title">Agenda de hoje</div>
+  <div class="dashboard-card-heading">
+    <div class="card-title">Agenda de {{ data_referencia }}</div>
+    <div class="dashboard-date-actions">
+      <a href="{% url 'dashboard' %}?data={{ data_anterior }}" class="btn btn-outline btn-sm">🡸</a>
+      <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm">Hoje</a>
+      <time datetime="{{ data_selecionada_iso }}" class="dashboard-date-pill">{{ data_selecionada|date:"d/m/Y" }}</time>
+      <a href="{% url 'dashboard' %}?data={{ data_proxima }}" class="btn btn-outline btn-sm">🡺</a>
+    </div>
+  </div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -59,7 +67,7 @@
         {% empty %}
         <tr>
           <td colspan="5">
-            <div class="empty-state">Nenhum agendamento para hoje.</div>
+            <div class="empty-state">Nenhum agendamento para {{ data_referencia }}.</div>
           </td>
         </tr>
         {% endfor %}

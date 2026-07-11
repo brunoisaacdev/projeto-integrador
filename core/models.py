@@ -112,6 +112,10 @@ class Agendamento(models.Model):
     def ativo(self):
         return self.status != self.STATUS_CANCELADO
 
+    @property
+    def pode_ser_alterado(self):
+        return self.status == self.STATUS_AGENDADO
+
     def clean(self):
         """Validação para evitar conflito de horários do mesmo profissional."""
         if not self.inicio or not self.servico_id or not self.profissional_id:
