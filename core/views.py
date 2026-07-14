@@ -772,20 +772,46 @@ def profissional_delete(request, pk):
 def horario_funcionamento(request):
     HorarioFuncionamento.garantir_padrao()
     queryset = HorarioFuncionamento.objects.all()
+    acao = (
+        request.POST.get("action", "save_hours")
+        if request.method == "POST"
+        else None
+    )
     formset = HorarioFuncionamentoFormSet(
-        request.POST or None,
+        request.POST if acao == "save_hours" else None,
         queryset=queryset,
     )
+    fechamento_form = FechamentoFuncionamentoForm(
+        request.POST if acao == "add_closure" else None,
+    )
 
-    if request.method == "POST" and formset.is_valid():
-        formset.save()
-        messages.success(request, "Horários de funcionamento salvos com sucesso.")
-        return redirect("horario_funcionamento")
+    if request.method == "POST":
+        if acao == "add_closure":
+            if fechamento_form.is_valid():
+                fechamento_form.save()
+                messages.success(request, "Dia fechado cadastrado com sucesso.")
+                return redirect("horario_funcionamento")
+        elif acao == "delete_closure":
+            fechamento = get_object_or_404(
+                FechamentoFuncionamento,
+                pk=request.POST.get("fechamento_id"),
+            )
+            fechamento.delete()
+            messages.success(request, "Dia fechado removido.")
+            return redirect("horario_funcionamento")
+        elif formset.is_valid():
+            formset.save()
+            messages.success(request, "Horários de funcionamento salvos com sucesso.")
+            return redirect("horario_funcionamento")
 
     return render(
         request,
         "core/horarios_funcionamento.html",
-        {"formset": formset},
+        {
+            "fechamento_form": fechamento_form,
+            "fechamentos": FechamentoFuncionamento.objects.order_by("data"),
+            "formset": formset,
+        },
     )
 
 

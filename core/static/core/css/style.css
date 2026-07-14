@@ -721,13 +721,6 @@ textarea {
   font-size: 13px;
 }
 
-.business-hours-presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
 .business-hours-list {
   display: flex;
   flex-direction: column;
@@ -901,6 +894,79 @@ textarea {
   padding-top: 22px;
 }
 
+.business-closures-card {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.business-closures-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.business-closures-header .card-title {
+  margin-bottom: 4px;
+}
+
+.business-closures-header p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.business-closures-form {
+  align-items: flex-end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(170px, 0.55fr) minmax(220px, 1fr) auto;
+}
+
+.business-closures-form .alert {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.business-closures-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.business-closure-item {
+  align-items: center;
+  background: rgba(29, 24, 48, 0.78);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 15px;
+}
+
+.business-closure-info {
+  min-width: 0;
+}
+
+.business-closure-info strong,
+.business-closure-info span {
+  display: block;
+}
+
+.business-closure-info strong {
+  font-size: 15px;
+}
+
+.business-closure-info span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.business-closure-remove-form {
+  flex: 0 0 auto;
+}
+
 @container (max-width: 960px) {
   .business-hours-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -909,10 +975,6 @@ textarea {
   .business-hours-toolbar {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .business-hours-presets {
-    justify-content: flex-start;
   }
 
   .business-hours-row {
@@ -932,11 +994,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .business-hours-presets .btn {
-    justify-content: center;
-    width: 100%;
-  }
-
   .business-hours-switch {
     justify-content: space-between;
   }
@@ -944,6 +1001,23 @@ textarea {
   .business-hours-duration {
     justify-self: stretch;
     min-width: 0;
+  }
+
+  .business-closures-form {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .business-closure-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .business-closures-form .btn,
+  .business-closure-remove-form,
+  .business-closure-remove-form .btn {
+    justify-content: center;
+    width: 100%;
   }
 }
 
@@ -2488,12 +2562,8 @@ textarea {
     align-items: stretch;
     flex-direction: column;
   }
-  .business-hours-page-header .btn,
-  .business-hours-presets .btn {
+  .business-hours-page-header .btn {
     justify-content: center;
-    width: 100%;
-  }
-  .business-hours-presets {
     width: 100%;
   }
   .business-hours-row {

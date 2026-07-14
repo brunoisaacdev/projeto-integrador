@@ -233,9 +233,18 @@ class FechamentoFuncionamentoForm(BootstrapModelForm):
     class Meta:
         model = FechamentoFuncionamento
         fields = ["data", "motivo"]
-        widgets = {
-            "data": forms.DateInput(attrs={"type": "date"}),
+        error_messages = {
+            "data": {
+                "unique": "Esta data já foi cadastrada como dia fechado.",
+            },
         }
+        widgets = {
+            "data": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["data"].input_formats = ["%Y-%m-%d"]
 
 
 class AgendamentoForm(BootstrapModelForm):

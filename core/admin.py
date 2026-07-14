@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Agendamento, Cliente, HorarioFuncionamento, Profissional, Servico
+from .models import (
+    Agendamento,
+    Cliente,
+    FechamentoFuncionamento,
+    HorarioFuncionamento,
+    Profissional,
+    Servico,
+)
 
 
 @admin.register(Cliente)
@@ -30,6 +37,14 @@ class HorarioFuncionamentoAdmin(admin.ModelAdmin):
     list_display = ("get_dia_semana_display", "aberto", "hora_abertura", "hora_fechamento")
     list_editable = ("aberto", "hora_abertura", "hora_fechamento")
     ordering = ("dia_semana",)
+
+
+@admin.register(FechamentoFuncionamento)
+class FechamentoFuncionamentoAdmin(admin.ModelAdmin):
+    list_display = ("data", "motivo", "criado_em")
+    search_fields = ("motivo",)
+    date_hierarchy = "data"
+    ordering = ("data",)
 
 
 @admin.register(Agendamento)

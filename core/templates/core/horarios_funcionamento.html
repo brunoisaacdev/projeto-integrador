@@ -43,11 +43,6 @@
       <h2 class="card-title">Configuração semanal</h2>
       <p>Altere o expediente que será usado nos agendamentos.</p>
     </div>
-    <div class="business-hours-presets">
-      <button type="button" class="btn btn-outline btn-sm" data-business-hours-preset="commercial">Padrão comercial</button>
-      <button type="button" class="btn btn-outline btn-sm" data-business-hours-preset="open-all">Abrir todos</button>
-      <button type="button" class="btn btn-outline btn-sm" data-business-hours-preset="close-all">Fechar todos</button>
-    </div>
   </div>
 
   <div class="business-hours-list">
@@ -106,6 +101,61 @@
     <a href="{% url 'dashboard' %}" class="btn btn-outline">Cancelar</a>
   </div>
 </form>
+
+<div class="card business-closures-card">
+  <div class="business-closures-header">
+    <div>
+      <h2 class="card-title">Feriados e dias fechados</h2>
+      <p>Cadastre datas em que a barbearia não terá atendimento.</p>
+    </div>
+  </div>
+
+  <form method="post" class="business-closures-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add_closure">
+
+    {% if fechamento_form.non_field_errors %}
+      <div class="alert alert-danger">{{ fechamento_form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-group">
+      <label for="{{ fechamento_form.data.id_for_label }}">Data</label>
+      {{ fechamento_form.data }}
+      {% for error in fechamento_form.data.errors %}
+        <span class="form-error">{{ error }}</span>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ fechamento_form.motivo.id_for_label }}">Motivo</label>
+      {{ fechamento_form.motivo }}
+      {% for error in fechamento_form.motivo.errors %}
+        <span class="form-error">{{ error }}</span>
+      {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Adicionar dia fechado</button>
+  </form>
+
+  <div class="business-closures-list" aria-label="Dias fechados cadastrados">
+    {% for fechamento in fechamentos %}
+      <div class="business-closure-item">
+        <div class="business-closure-info">
+          <strong>{{ fechamento.data|date:"d/m/Y" }}</strong>
+          <span>{{ fechamento.motivo|default:"Fechado" }}</span>
+        </div>
+        <form method="post" class="business-closure-remove-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete_closure">
+          <input type="hidden" name="fechamento_id" value="{{ fechamento.pk }}">
+          <button type="submit" class="btn btn-outline btn-sm">Remover</button>
+        </form>
+      </div>
+    {% empty %}
+      <div class="empty-state compact">Nenhum feriado ou dia fechado cadastrado.</div>
+    {% endfor %}
+  </div>
+</div>
 
 <script>
   const businessHoursForm = document.getElementById("business-hours-form");
@@ -214,39 +264,6 @@
     updateBusinessHoursSummary();
   }
 
-  function setBusinessHoursRow(row, { aberto, abertura, fechamento }) {
-    const { checkbox, opening, closing } = rowControls(row);
-    checkbox.checked = aberto;
-    if (abertura) {
-      opening.value = abertura;
-    }
-    if (fechamento) {
-      closing.value = fechamento;
-    }
-    refreshBusinessHoursRow(row);
-  }
-
-  function applyBusinessHoursPreset(preset) {
-    businessHoursRows.forEach((row) => {
-      const dayIndex = Number(row.dataset.dayIndex);
-      const commercial = dayIndex < 5
-        ? { aberto: true, abertura: "09:00", fechamento: "19:00" }
-        : dayIndex === 5
-          ? { aberto: true, abertura: "09:00", fechamento: "13:00" }
-          : { aberto: false, abertura: "09:00", fechamento: "19:00" };
-
-      if (preset === "commercial") {
-        setBusinessHoursRow(row, commercial);
-      }
-      if (preset === "open-all") {
-        setBusinessHoursRow(row, { aberto: true });
-      }
-      if (preset === "close-all") {
-        setBusinessHoursRow(row, { aberto: false });
-      }
-    });
-  }
-
   businessHoursRows.forEach((row) => {
     const { checkbox, opening, closing } = rowControls(row);
     [checkbox, opening, closing].forEach((input) => {
@@ -254,10 +271,6 @@
       input.addEventListener("input", () => refreshBusinessHoursRow(row));
     });
     refreshBusinessHoursRow(row);
-  });
-
-  document.querySelectorAll("[data-business-hours-preset]").forEach((button) => {
-    button.addEventListener("click", () => applyBusinessHoursPreset(button.dataset.businessHoursPreset));
   });
 
   businessHoursForm.addEventListener("submit", (event) => {

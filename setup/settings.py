@@ -12,10 +12,28 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(os.path.join(BASE_DIR, '.env'))
+
+
+def load_env_file(path):
+    try:
+        from dotenv import load_dotenv
+    except ModuleNotFoundError:
+        if not os.path.exists(path):
+            return
+        with open(path, encoding="utf-8") as env_file:
+            for line in env_file:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+    else:
+        load_dotenv(path)
+
+
+load_env_file(BASE_DIR / ".env")
 
 SECRET_KEY = 'django-insecure-+-zi*qdy6vy2!1#gf^nj(&8vdfh%wfv-=zr99xe(+(8)%3zk3h'
 

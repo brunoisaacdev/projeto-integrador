@@ -9,7 +9,14 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Agendamento, Cliente, HorarioFuncionamento, Profissional, Servico
+from .models import (
+    Agendamento,
+    Cliente,
+    FechamentoFuncionamento,
+    HorarioFuncionamento,
+    Profissional,
+    Servico,
+)
 
 
 TEST_MEDIA_ROOT = tempfile.mkdtemp()
@@ -808,6 +815,55 @@ class CorePageSmokeTests(TestCase):
         self.assertEqual(segunda.hora_abertura, time(hour=8, minute=30))
         self.assertEqual(segunda.hora_fechamento, time(hour=18))
 
+    def test_business_hours_page_has_closed_days_form_without_presets(self):
+        response = self.client.get(reverse("horario_funcionamento"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Feriados e dias fechados")
+        self.assertContains(response, "Adicionar dia fechado")
+        self.assertNotContains(response, "Padrão comercial")
+        self.assertNotContains(response, "Abrir todos")
+        self.assertNotContains(response, "Fechar todos")
+
+    def test_staff_can_add_closed_business_day(self):
+        data = timezone.localdate() + timedelta(days=20)
+
+        response = self.client.post(
+            reverse("horario_funcionamento"),
+            {
+                "action": "add_closure",
+                "data": data.isoformat(),
+                "motivo": "Feriado municipal",
+            },
+        )
+
+        self.assertRedirects(response, reverse("horario_funcionamento"))
+        self.assertTrue(
+            FechamentoFuncionamento.objects.filter(
+                data=data,
+                motivo="Feriado municipal",
+            ).exists()
+        )
+
+    def test_staff_can_remove_closed_business_day(self):
+        fechamento = FechamentoFuncionamento.objects.create(
+            data=timezone.localdate() + timedelta(days=21),
+            motivo="Manutenção",
+        )
+
+        response = self.client.post(
+            reverse("horario_funcionamento"),
+            {
+                "action": "delete_closure",
+                "fechamento_id": fechamento.pk,
+            },
+        )
+
+        self.assertRedirects(response, reverse("horario_funcionamento"))
+        self.assertFalse(
+            FechamentoFuncionamento.objects.filter(pk=fechamento.pk).exists()
+        )
+
     def test_agendar_page_uses_business_hours_for_available_times(self):
         data = self.future_date_for_weekday(HorarioFuncionamento.QUARTA)
         horario = HorarioFuncionamento.objects.get(dia_semana=data.weekday())
@@ -836,6 +892,24 @@ class CorePageSmokeTests(TestCase):
         horario = HorarioFuncionamento.objects.get(dia_semana=data.weekday())
         horario.aberto = False
         horario.save(update_fields=["aberto"])
+
+        response = self.client.get(
+            reverse("agendar"),
+            {
+                "servico": self.servico.pk,
+                "profissional": self.profissional.pk,
+                "data": data.isoformat(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'data-date="{data.isoformat()}"')
+        self.assertContains(response, "calendar-day-disabled")
+        self.assertNotContains(response, f'name="data" value="{data.isoformat()}"')
+
+    def test_agendar_page_disables_extra_closed_business_day(self):
+        data = self.future_date_for_weekday(HorarioFuncionamento.TERCA)
+        FechamentoFuncionamento.objects.create(data=data, motivo="Feriado")
 
         response = self.client.get(
             reverse("agendar"),
