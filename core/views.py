@@ -19,16 +19,23 @@ from .forms import (
     AgendamentoForm,
     CancelamentoForm,
     ClienteForm,
+    FechamentoFuncionamentoForm,
     ProfissionalForm,
     ServicoForm,
     SistemaAuthenticationForm,
     ClienteCadastroForm,
+    HorarioFuncionamentoFormSet,
 )
-from .models import Agendamento, Cliente, Profissional, Servico
+from .models import (
+    Agendamento,
+    Cliente,
+    FechamentoFuncionamento,
+    HorarioFuncionamento,
+    Profissional,
+    Servico,
+)
 
 
-HORARIO_ABERTURA = time(hour=9)
-HORARIO_FECHAMENTO = time(hour=19)
 INTERVALO_GRADE = timedelta(minutes=30)
 DIAS_SEMANA_CALENDARIO = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
 MESES_PT = [
@@ -113,12 +120,71 @@ def intervalo_livre(inicio, fim, agendamentos_ocupados):
     return True
 
 
-def horarios_livres(servico, profissional, data):
+def expediente_para_frontend():
+    HorarioFuncionamento.garantir_padrao()
+    expediente = {
+        str(horario.dia_semana): {
+            "aberto": horario.aberto,
+            "abertura": horario.hora_abertura.strftime("%H:%M"),
+            "fechamento": horario.hora_fechamento.strftime("%H:%M"),
+        }
+        for horario in HorarioFuncionamento.objects.all()
+    }
+    expediente["fechamentos"] = [
+        fechamento.data.isoformat()
+        for fechamento in FechamentoFuncionamento.objects.order_by("data")
+    ]
+    return expediente
+
+
+def expedientes_por_dia():
+    HorarioFuncionamento.garantir_padrao()
+    return {
+        horario.dia_semana: horario
+        for horario in HorarioFuncionamento.objects.all()
+    }
+
+
+def fechamentos_no_periodo(inicio, fim):
+    return FechamentoFuncionamento.datas_fechadas(inicio, fim)
+
+
+def duracoes_servicos_para_frontend():
+    return {
+        str(servico.pk): servico.duracao_minutos
+        for servico in Servico.objects.filter(ativo=True)
+    }
+
+
+def horarios_livres(
+    servico,
+    profissional,
+    data,
+    agendamento_id=None,
+    expedientes=None,
+    fechamentos=None,
+):
     if not servico or not profissional or not data:
         return []
 
-    abertura = timezone.make_aware(datetime.combine(data, HORARIO_ABERTURA))
-    fechamento = timezone.make_aware(datetime.combine(data, HORARIO_FECHAMENTO))
+    if fechamentos is not None:
+        if data in fechamentos:
+            return []
+    elif FechamentoFuncionamento.fechado_na_data(data):
+        return []
+
+    expediente = (
+        expedientes.get(data.weekday())
+        if expedientes is not None
+        else HorarioFuncionamento.expediente_para_data(data)
+    )
+    if expediente is None:
+        return []
+    periodo = expediente.periodo_para_data(data)
+    if periodo is None:
+        return []
+
+    abertura, fechamento = periodo
     duracao = timedelta(minutes=servico.duracao_minutos)
     agora = timezone.now()
     ocupados = (
@@ -126,6 +192,8 @@ def horarios_livres(servico, profissional, data):
         .filter(profissional=profissional, inicio__date=data)
         .exclude(status=Agendamento.STATUS_CANCELADO)
     )
+    if agendamento_id:
+        ocupados = ocupados.exclude(pk=agendamento_id)
 
     horarios = []
     atual = abertura
@@ -144,10 +212,18 @@ def horarios_livres(servico, profissional, data):
 
 def datas_livres(servico, profissional, dias=30):
     hoje = timezone.localdate()
+    expedientes = expedientes_por_dia()
+    fechamentos = fechamentos_no_periodo(hoje, hoje + timedelta(days=dias))
     datas = []
     for indice in range(dias):
         data = hoje + timedelta(days=indice)
-        if horarios_livres(servico, profissional, data):
+        if horarios_livres(
+            servico,
+            profissional,
+            data,
+            expedientes=expedientes,
+            fechamentos=fechamentos,
+        ):
             datas.append(
                 {
                     "value": data.isoformat(),
@@ -185,11 +261,23 @@ def calendario_disponibilidade(servico, profissional, mes_base):
     hoje = timezone.localdate()
     primeiro_dia_semana = (mes_base.weekday() + 1) % 7
     total_dias = calendar.monthrange(mes_base.year, mes_base.month)[1]
+    expedientes = expedientes_por_dia()
+    primeiro_dia = mes_base
+    ultimo_dia = mes_base.replace(day=total_dias)
+    fechamentos = fechamentos_no_periodo(primeiro_dia, ultimo_dia)
 
     dias = [{"empty": True} for _ in range(primeiro_dia_semana)]
     for numero_dia in range(1, total_dias + 1):
         data = mes_base.replace(day=numero_dia)
-        disponivel = bool(horarios_livres(servico, profissional, data))
+        disponivel = bool(
+            horarios_livres(
+                servico,
+                profissional,
+                data,
+                expedientes=expedientes,
+                fechamentos=fechamentos,
+            )
+        )
         dias.append(
             {
                 "empty": False,
@@ -295,7 +383,10 @@ def agendar(request):
             agendamento = form.save()
             return redirect(f'{reverse("agendar")}?sucesso={agendamento.pk}')
         if not horario_valido:
-            form.add_error("inicio", "Horário indisponível para essa data.")
+            form.add_error(
+                "inicio",
+                "O horário está fora do expediente ou indisponível para essa data.",
+            )
         messages.error(request, "Revise os dados do agendamento.")
 
     mes_atual_sistema = primeiro_dia_mes(timezone.localdate())
@@ -317,6 +408,7 @@ def agendar(request):
             "form": form,
             "horario_selecionado": horario_selecionado,
             "horarios": horarios,
+            "horarios_validos": [item["value"] for item in horarios],
             "mes_anterior": mes_anterior.strftime("%Y-%m") if mes_anterior else "",
             "mes_atual": mes_base.strftime("%Y-%m"),
             "mes_label": nome_mes(mes_base),
@@ -393,6 +485,7 @@ class SistemaLoginView(LoginView):
         staff_only_paths = (
             reverse("dashboard"),
             reverse("agendamento_list"),
+            reverse("horario_funcionamento"),
             reverse("servico_list"),
             reverse("profissional_list"),
         )
@@ -676,6 +769,28 @@ def profissional_delete(request, pk):
 
 @login_required
 @staff_required
+def horario_funcionamento(request):
+    HorarioFuncionamento.garantir_padrao()
+    queryset = HorarioFuncionamento.objects.all()
+    formset = HorarioFuncionamentoFormSet(
+        request.POST or None,
+        queryset=queryset,
+    )
+
+    if request.method == "POST" and formset.is_valid():
+        formset.save()
+        messages.success(request, "Horários de funcionamento salvos com sucesso.")
+        return redirect("horario_funcionamento")
+
+    return render(
+        request,
+        "core/horarios_funcionamento.html",
+        {"formset": formset},
+    )
+
+
+@login_required
+@staff_required
 def agendamento_list(request):
     filtro = AgendamentoFiltroForm(request.GET or None)
     agendamentos = Agendamento.objects.select_related(
@@ -730,7 +845,12 @@ def agendamento_form(request, pk=None):
     return render(
         request,
         "core/agendamento_form.html",
-        {"form": form, "agendamento": agendamento},
+        {
+            "form": form,
+            "agendamento": agendamento,
+            "expediente_frontend": expediente_para_frontend(),
+            "duracoes_servicos": duracoes_servicos_para_frontend(),
+        },
     )
 
 

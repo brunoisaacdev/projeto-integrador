@@ -26,6 +26,8 @@ urlpatterns = [
     path("profissionais/<int:pk>/editar/", views.profissional_form, name="profissional_editar"),
     path("profissionais/<int:pk>/excluir/", views.profissional_delete, name="profissional_excluir"),
 
+    path("horarios-funcionamento/", views.horario_funcionamento, name="horario_funcionamento"),
+
     path("agendamentos/", views.agendamento_list, name="agendamento_list"),
     path("agendamentos/novo/", views.agendamento_form, name="agendamento_novo"),
     path("agendamentos/<int:pk>/editar/", views.agendamento_form, name="agendamento_editar"),

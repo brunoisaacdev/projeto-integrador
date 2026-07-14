@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agendar Horário | Premium Barbearia</title>
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=23" />
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=24" />
   </head>
   <body class="appointments-page">
     <main class="appointments-shell appointments-shell-narrow">
@@ -54,6 +54,7 @@
         {% if form.non_field_errors %}
           <div class="alert alert-danger">{{ form.non_field_errors }}</div>
         {% endif %}
+        <div class="alert alert-danger" id="appointment-client-error" hidden></div>
 
         <section class="appointment-card client-card">
           <div class="appointment-card-title">
@@ -290,9 +291,12 @@
       </div>
     </div>
 
+    {{ horarios_validos|json_script:"valid-times-data" }}
     <script>
       const scrollKey = "agendar-scroll-y";
       const observationsKey = "agendar-observacoes";
+      const validTimes = JSON.parse(document.getElementById("valid-times-data").textContent);
+      const appointmentClientError = document.getElementById("appointment-client-error");
 
       function restorePageState() {
         const savedScroll = sessionStorage.getItem(scrollKey);
@@ -358,6 +362,17 @@
         document.getElementById("summary-price").textContent = selectedPrice();
       }
 
+      function showAppointmentClientError(message) {
+        appointmentClientError.textContent = message;
+        appointmentClientError.hidden = false;
+        appointmentClientError.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      function selectedTimeIsValid() {
+        const horario = document.querySelector("input[name='horario']:checked");
+        return Boolean(horario && validTimes.includes(horario.value));
+      }
+
       document.querySelectorAll("input[data-refresh]").forEach((input) => {
         input.addEventListener("change", refreshAvailability);
       });
@@ -382,9 +397,17 @@
       }
 
       appointmentForm.addEventListener("submit", (event) => {
+        if (!selectedTimeIsValid()) {
+          confirmationApproved = false;
+          event.preventDefault();
+          showAppointmentClientError("O horário está fora do expediente ou indisponível para essa data.");
+          return;
+        }
+
         if (confirmationApproved) return;
 
         event.preventDefault();
+        appointmentClientError.hidden = true;
         confirmationModal.hidden = false;
         document.body.classList.add("booking-modal-open");
         confirmationAccept.focus();

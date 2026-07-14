@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}Premium Barbearia{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=23" />
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=25" />
   </head>
   <body>
     <div class="layout">
@@ -31,6 +31,7 @@
           {% if request.user.is_staff %}
           <a href="{% url 'servico_list' %}" class="nav-item{% if current == 'servico_list' or current == 'servico_novo' or current == 'servico_editar' %} active{% endif %}">Serviços</a>
           <a href="{% url 'profissional_list' %}" class="nav-item{% if current == 'profissional_list' or current == 'profissional_novo' or current == 'profissional_editar' %} active{% endif %}">Profissionais</a>
+          <a href="{% url 'horario_funcionamento' %}" class="nav-item{% if current == 'horario_funcionamento' %} active{% endif %}">Horários de Funcionamento</a>
           {% endif %}
         </nav>
         {% endwith %}

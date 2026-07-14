@@ -6,7 +6,14 @@ from django.db import transaction
 from django.db.models import Q
 
 from .auth_utils import normalizar_telefone, contas_por_identificador
-from .models import Agendamento, Cliente, Profissional, Servico
+from .models import (
+    Agendamento,
+    Cliente,
+    FechamentoFuncionamento,
+    HorarioFuncionamento,
+    Profissional,
+    Servico,
+)
 
 
 class BootstrapModelForm(forms.ModelForm):
@@ -180,6 +187,55 @@ class ProfissionalForm(BootstrapModelForm):
                     "Já existe um profissional cadastrado com este telefone."
                 )
         return telefone
+
+
+class HorarioFuncionamentoForm(BootstrapModelForm):
+    class Meta:
+        model = HorarioFuncionamento
+        fields = ["aberto", "hora_abertura", "hora_fechamento"]
+        widgets = {
+            "hora_abertura": forms.TimeInput(
+                attrs={"type": "time"},
+                format="%H:%M",
+            ),
+            "hora_fechamento": forms.TimeInput(
+                attrs={"type": "time"},
+                format="%H:%M",
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["hora_abertura"].input_formats = ["%H:%M"]
+        self.fields["hora_fechamento"].input_formats = ["%H:%M"]
+
+    def clean(self):
+        cleaned = super().clean()
+        aberto = cleaned.get("aberto")
+        abertura = cleaned.get("hora_abertura")
+        fechamento = cleaned.get("hora_fechamento")
+        if aberto and abertura and fechamento and abertura >= fechamento:
+            raise forms.ValidationError(
+                "O horário de fechamento deve ser posterior ao horário de abertura."
+            )
+        return cleaned
+
+
+HorarioFuncionamentoFormSet = forms.modelformset_factory(
+    HorarioFuncionamento,
+    form=HorarioFuncionamentoForm,
+    extra=0,
+    can_delete=False,
+)
+
+
+class FechamentoFuncionamentoForm(BootstrapModelForm):
+    class Meta:
+        model = FechamentoFuncionamento
+        fields = ["data", "motivo"]
+        widgets = {
+            "data": forms.DateInput(attrs={"type": "date"}),
+        }
 
 
 class AgendamentoForm(BootstrapModelForm):

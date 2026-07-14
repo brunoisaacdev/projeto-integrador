@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -74,6 +74,155 @@ class Profissional(models.Model):
         return self.nome
 
 
+class HorarioFuncionamento(models.Model):
+    SEGUNDA = 0
+    TERCA = 1
+    QUARTA = 2
+    QUINTA = 3
+    SEXTA = 4
+    SABADO = 5
+    DOMINGO = 6
+    DIAS_SEMANA = [
+        (SEGUNDA, "Segunda-feira"),
+        (TERCA, "Terça-feira"),
+        (QUARTA, "Quarta-feira"),
+        (QUINTA, "Quinta-feira"),
+        (SEXTA, "Sexta-feira"),
+        (SABADO, "Sábado"),
+        (DOMINGO, "Domingo"),
+    ]
+
+    dia_semana = models.PositiveSmallIntegerField(
+        "Dia da semana",
+        choices=DIAS_SEMANA,
+        unique=True,
+    )
+    aberto = models.BooleanField("Atende neste dia", default=True)
+    hora_abertura = models.TimeField("Abertura", default=time(hour=9))
+    hora_fechamento = models.TimeField("Fechamento", default=time(hour=19))
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Horário de funcionamento"
+        verbose_name_plural = "Horários de funcionamento"
+        ordering = ["dia_semana"]
+
+    def __str__(self):
+        if not self.aberto:
+            return f"{self.get_dia_semana_display()} - fechado"
+        return (
+            f"{self.get_dia_semana_display()} - "
+            f"{self.hora_abertura:%H:%M} às {self.hora_fechamento:%H:%M}"
+        )
+
+    @classmethod
+    def padroes(cls):
+        return [
+            {
+                "dia_semana": dia,
+                "aberto": True,
+                "hora_abertura": time(hour=9),
+                "hora_fechamento": time(hour=19),
+            }
+            for dia, _nome in cls.DIAS_SEMANA
+        ]
+
+    @classmethod
+    def garantir_padrao(cls):
+        existentes = set(cls.objects.values_list("dia_semana", flat=True))
+        for dados in cls.padroes():
+            if dados["dia_semana"] not in existentes:
+                cls.objects.create(**dados)
+
+    @classmethod
+    def para_data(cls, data):
+        dia_semana = data.weekday()
+        try:
+            return cls.objects.get(dia_semana=dia_semana)
+        except cls.DoesNotExist:
+            padrao = cls.padroes()[dia_semana]
+            return cls.objects.create(**padrao)
+
+    @classmethod
+    def expediente_para_data(cls, data):
+        if FechamentoFuncionamento.fechado_na_data(data):
+            return None
+        return cls.para_data(data)
+
+    def clean(self):
+        if (
+            self.aberto
+            and self.hora_abertura
+            and self.hora_fechamento
+            and self.hora_abertura >= self.hora_fechamento
+        ):
+            raise ValidationError(
+                {
+                    "hora_fechamento": (
+                        "O horário de fechamento deve ser posterior ao horário "
+                        "de abertura."
+                    )
+                }
+            )
+
+    def periodo_para_data(self, data):
+        if not self.aberto:
+            return None
+
+        tz = timezone.get_current_timezone()
+        abertura = timezone.make_aware(
+            datetime.combine(data, self.hora_abertura),
+            tz,
+        )
+        fechamento = timezone.make_aware(
+            datetime.combine(data, self.hora_fechamento),
+            tz,
+        )
+        return abertura, fechamento
+
+    def contem_periodo(self, inicio, fim):
+        if timezone.is_naive(inicio):
+            inicio = timezone.make_aware(inicio, timezone.get_current_timezone())
+        if timezone.is_naive(fim):
+            fim = timezone.make_aware(fim, timezone.get_current_timezone())
+
+        data_local = timezone.localtime(inicio).date()
+        periodo = self.periodo_para_data(data_local)
+        if periodo is None:
+            return False
+
+        abertura, fechamento = periodo
+        return abertura <= inicio and fim <= fechamento
+
+
+class FechamentoFuncionamento(models.Model):
+    data = models.DateField("Data", unique=True)
+    motivo = models.CharField("Motivo", max_length=120, blank=True, default="Feriado")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Fechamento de funcionamento"
+        verbose_name_plural = "Fechamentos de funcionamento"
+        ordering = ["data"]
+
+    def __str__(self):
+        motivo = self.motivo or "Fechado"
+        return f"{self.data:%d/%m/%Y} - {motivo}"
+
+    @classmethod
+    def fechado_na_data(cls, data):
+        return cls.objects.filter(data=data).exists()
+
+    @classmethod
+    def datas_fechadas(cls, inicio=None, fim=None):
+        fechamentos = cls.objects.all()
+        if inicio:
+            fechamentos = fechamentos.filter(data__gte=inicio)
+        if fim:
+            fechamentos = fechamentos.filter(data__lte=fim)
+        return set(fechamentos.values_list("data", flat=True))
+
+
 class Agendamento(models.Model):
     STATUS_AGENDADO = "agendado"
     STATUS_CONCLUIDO = "concluido"
@@ -117,7 +266,7 @@ class Agendamento(models.Model):
         return self.status == self.STATUS_AGENDADO
 
     def clean(self):
-        """Validação para evitar conflito de horários do mesmo profissional."""
+        """Valida expediente da empresa e conflitos do mesmo profissional."""
         if not self.inicio or not self.servico_id or not self.profissional_id:
             return
 
@@ -125,10 +274,25 @@ class Agendamento(models.Model):
             return
 
         inicio = self.inicio
+        if timezone.is_naive(inicio):
+            inicio = timezone.make_aware(inicio, timezone.get_current_timezone())
+            self.inicio = inicio
         fim = self.fim
 
         if inicio < timezone.now() and not self.pk:
             raise ValidationError({"inicio": "Não é possível agendar em uma data/hora passada."})
+
+        data_inicio = timezone.localtime(inicio).date()
+        expediente = HorarioFuncionamento.expediente_para_data(data_inicio)
+        if expediente is None or not expediente.contem_periodo(inicio, fim):
+            raise ValidationError(
+                {
+                    "inicio": (
+                        "O horário está fora do expediente de funcionamento da "
+                        "empresa."
+                    )
+                }
+            )
 
         conflitos = Agendamento.objects.filter(
             profissional=self.profissional,

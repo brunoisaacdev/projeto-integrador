@@ -1,0 +1,271 @@
+{% extends "core/base.html" %}
+
+{% block title %}Horários de Funcionamento | Premium Barbearia{% endblock %}
+
+{% block content %}
+<div class="page-header business-hours-page-header">
+  <div>
+    <h1 class="page-title">Horários de Funcionamento</h1>
+    <p class="page-subtitle">Expediente utilizado para calcular datas e horários de agendamento</p>
+  </div>
+  <a href="{% url 'dashboard' %}" class="btn btn-outline">Voltar ao dashboard</a>
+</div>
+
+<form method="post" id="business-hours-form" class="card business-hours-card">
+  {% csrf_token %}
+  {{ formset.management_form }}
+
+  {% if formset.non_form_errors %}
+    <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+  {% endif %}
+
+  <div class="business-hours-overview" aria-label="Resumo dos horários de funcionamento">
+    <div class="business-hours-stat">
+      <span>Dias abertos</span>
+      <strong id="business-hours-open-days">0</strong>
+    </div>
+    <div class="business-hours-stat">
+      <span>Primeira abertura</span>
+      <strong id="business-hours-first-open">--:--</strong>
+    </div>
+    <div class="business-hours-stat">
+      <span>Último fechamento</span>
+      <strong id="business-hours-last-close">--:--</strong>
+    </div>
+    <div class="business-hours-stat">
+      <span>Carga semanal</span>
+      <strong id="business-hours-week-total">0h</strong>
+    </div>
+  </div>
+
+  <div class="business-hours-toolbar">
+    <div>
+      <h2 class="card-title">Configuração semanal</h2>
+      <p>Altere o expediente que será usado nos agendamentos.</p>
+    </div>
+    <div class="business-hours-presets">
+      <button type="button" class="btn btn-outline btn-sm" data-business-hours-preset="commercial">Padrão comercial</button>
+      <button type="button" class="btn btn-outline btn-sm" data-business-hours-preset="open-all">Abrir todos</button>
+      <button type="button" class="btn btn-outline btn-sm" data-business-hours-preset="close-all">Fechar todos</button>
+    </div>
+  </div>
+
+  <div class="business-hours-list">
+    {% for form in formset %}
+      <section
+        class="business-hours-row{% if not form.instance.aberto %} business-hours-closed{% endif %}"
+        data-business-hours-row
+        data-day-index="{{ forloop.counter0 }}"
+      >
+        {{ form.id }}
+
+        <div class="business-hours-day">
+          <span>Dia</span>
+          <strong>{{ form.instance.get_dia_semana_display }}</strong>
+          <small class="business-hours-status-pill" data-business-hours-status-pill>Aberto</small>
+        </div>
+
+        <label class="business-hours-switch" for="{{ form.aberto.id_for_label }}">
+          {{ form.aberto }}
+          <span class="business-hours-switch-track" aria-hidden="true"></span>
+          <span data-business-hours-status-label>Aberto</span>
+        </label>
+
+        <div class="business-hours-time-group">
+          <label for="{{ form.hora_abertura.id_for_label }}">Abertura</label>
+          {{ form.hora_abertura }}
+          {% for error in form.hora_abertura.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="business-hours-time-group">
+          <label for="{{ form.hora_fechamento.id_for_label }}">Fechamento</label>
+          {{ form.hora_fechamento }}
+          {% for error in form.hora_fechamento.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="business-hours-duration" data-business-hours-duration>--</div>
+
+        {% if form.aberto.errors or form.non_field_errors %}
+          <div class="business-hours-row-errors">
+            {% for error in form.aberto.errors %}
+              <span class="form-error">{{ error }}</span>
+            {% endfor %}
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </div>
+
+  <div class="form-actions business-hours-actions">
+    <button type="submit" class="btn btn-primary">Salvar horários</button>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline">Cancelar</a>
+  </div>
+</form>
+
+<script>
+  const businessHoursForm = document.getElementById("business-hours-form");
+  const businessHoursRows = Array.from(document.querySelectorAll("[data-business-hours-row]"));
+  const openDaysSummary = document.getElementById("business-hours-open-days");
+  const firstOpenSummary = document.getElementById("business-hours-first-open");
+  const lastCloseSummary = document.getElementById("business-hours-last-close");
+  const weekTotalSummary = document.getElementById("business-hours-week-total");
+  const invalidTimeMessage = "O horário de fechamento deve ser posterior ao horário de abertura.";
+
+  function timeToMinutes(value) {
+    if (!value) {
+      return null;
+    }
+    const [hours, minutes] = value.split(":").map(Number);
+    return hours * 60 + minutes;
+  }
+
+  function minutesToTime(minutes) {
+    const hours = Math.floor(minutes / 60).toString().padStart(2, "0");
+    const rest = (minutes % 60).toString().padStart(2, "0");
+    return `${hours}:${rest}`;
+  }
+
+  function formatDuration(minutes) {
+    if (!minutes || minutes <= 0) {
+      return "Revise os horários";
+    }
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours}h${rest.toString().padStart(2, "0")} de atendimento` : `${hours}h de atendimento`;
+  }
+
+  function formatWeekTotal(minutes) {
+    if (!minutes || minutes <= 0) {
+      return "0h";
+    }
+    return formatDuration(minutes).replace(" de atendimento", "");
+  }
+
+  function rowControls(row) {
+    return {
+      checkbox: row.querySelector("input[type='checkbox']"),
+      opening: row.querySelector("input[name$='hora_abertura']"),
+      closing: row.querySelector("input[name$='hora_fechamento']"),
+      statusLabel: row.querySelector("[data-business-hours-status-label]"),
+      statusPill: row.querySelector("[data-business-hours-status-pill]"),
+      duration: row.querySelector("[data-business-hours-duration]"),
+    };
+  }
+
+  function validateBusinessHoursRow(row) {
+    const { checkbox, opening, closing } = rowControls(row);
+    const openingMinutes = timeToMinutes(opening.value);
+    const closingMinutes = timeToMinutes(closing.value);
+    const invalid = checkbox.checked
+      && openingMinutes !== null
+      && closingMinutes !== null
+      && openingMinutes >= closingMinutes;
+
+    closing.setCustomValidity(invalid ? invalidTimeMessage : "");
+    row.classList.toggle("business-hours-invalid", invalid);
+    return !invalid;
+  }
+
+  function updateBusinessHoursSummary() {
+    const openRows = businessHoursRows
+      .map(rowControls)
+      .filter(({ checkbox }) => checkbox.checked);
+    const openingTimes = openRows
+      .map(({ opening }) => timeToMinutes(opening.value))
+      .filter((value) => value !== null);
+    const closingTimes = openRows
+      .map(({ closing }) => timeToMinutes(closing.value))
+      .filter((value) => value !== null);
+    const weeklyMinutes = openRows.reduce((total, { opening, closing }) => {
+      const openingMinutes = timeToMinutes(opening.value);
+      const closingMinutes = timeToMinutes(closing.value);
+      return openingMinutes !== null && closingMinutes !== null && closingMinutes > openingMinutes
+        ? total + closingMinutes - openingMinutes
+        : total;
+    }, 0);
+
+    openDaysSummary.textContent = `${openRows.length}/7`;
+    firstOpenSummary.textContent = openingTimes.length ? minutesToTime(Math.min(...openingTimes)) : "--:--";
+    lastCloseSummary.textContent = closingTimes.length ? minutesToTime(Math.max(...closingTimes)) : "--:--";
+    weekTotalSummary.textContent = formatWeekTotal(weeklyMinutes);
+  }
+
+  function updateBusinessHoursRow(row) {
+    const { checkbox, opening, closing, statusLabel, statusPill, duration } = rowControls(row);
+    const isClosed = !checkbox.checked;
+    const openingMinutes = timeToMinutes(opening.value);
+    const closingMinutes = timeToMinutes(closing.value);
+    const minutes = openingMinutes !== null && closingMinutes !== null ? closingMinutes - openingMinutes : 0;
+
+    row.classList.toggle("business-hours-closed", isClosed);
+    statusLabel.textContent = isClosed ? "Fechado" : "Aberto";
+    statusPill.textContent = isClosed ? "Fechado" : "Aberto";
+    duration.textContent = isClosed ? "Sem atendimento" : formatDuration(minutes);
+  }
+
+  function refreshBusinessHoursRow(row) {
+    updateBusinessHoursRow(row);
+    validateBusinessHoursRow(row);
+    updateBusinessHoursSummary();
+  }
+
+  function setBusinessHoursRow(row, { aberto, abertura, fechamento }) {
+    const { checkbox, opening, closing } = rowControls(row);
+    checkbox.checked = aberto;
+    if (abertura) {
+      opening.value = abertura;
+    }
+    if (fechamento) {
+      closing.value = fechamento;
+    }
+    refreshBusinessHoursRow(row);
+  }
+
+  function applyBusinessHoursPreset(preset) {
+    businessHoursRows.forEach((row) => {
+      const dayIndex = Number(row.dataset.dayIndex);
+      const commercial = dayIndex < 5
+        ? { aberto: true, abertura: "09:00", fechamento: "19:00" }
+        : dayIndex === 5
+          ? { aberto: true, abertura: "09:00", fechamento: "13:00" }
+          : { aberto: false, abertura: "09:00", fechamento: "19:00" };
+
+      if (preset === "commercial") {
+        setBusinessHoursRow(row, commercial);
+      }
+      if (preset === "open-all") {
+        setBusinessHoursRow(row, { aberto: true });
+      }
+      if (preset === "close-all") {
+        setBusinessHoursRow(row, { aberto: false });
+      }
+    });
+  }
+
+  businessHoursRows.forEach((row) => {
+    const { checkbox, opening, closing } = rowControls(row);
+    [checkbox, opening, closing].forEach((input) => {
+      input.addEventListener("change", () => refreshBusinessHoursRow(row));
+      input.addEventListener("input", () => refreshBusinessHoursRow(row));
+    });
+    refreshBusinessHoursRow(row);
+  });
+
+  document.querySelectorAll("[data-business-hours-preset]").forEach((button) => {
+    button.addEventListener("click", () => applyBusinessHoursPreset(button.dataset.businessHoursPreset));
+  });
+
+  businessHoursForm.addEventListener("submit", (event) => {
+    const validRows = businessHoursRows.map(validateBusinessHoursRow).every(Boolean);
+    if (!validRows || !businessHoursForm.checkValidity()) {
+      event.preventDefault();
+      businessHoursForm.reportValidity();
+    }
+  });
+</script>
+{% endblock %}

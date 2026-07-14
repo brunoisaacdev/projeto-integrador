@@ -3,12 +3,13 @@ import tempfile
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Agendamento, Cliente, Profissional, Servico
+from .models import Agendamento, Cliente, HorarioFuncionamento, Profissional, Servico
 
 
 TEST_MEDIA_ROOT = tempfile.mkdtemp()
@@ -52,6 +53,12 @@ class CorePageSmokeTests(TestCase):
             servico=self.servico,
             inicio=timezone.now() + timedelta(days=1),
         )
+
+    def future_date_for_weekday(self, weekday, minimum_days=10):
+        data = timezone.localdate() + timedelta(days=minimum_days)
+        while data.weekday() != weekday:
+            data += timedelta(days=1)
+        return data
 
     def test_login_page_renders(self):
         self.client.logout()
@@ -773,6 +780,121 @@ class CorePageSmokeTests(TestCase):
         self.assertContains(response, "Joao Mendes")
         self.assertEqual(list(response.context["agendamentos"]), [self.agendamento])
 
+    def test_staff_can_update_business_hours(self):
+        horarios = list(HorarioFuncionamento.objects.order_by("dia_semana"))
+        post_data = {
+            "form-TOTAL_FORMS": str(len(horarios)),
+            "form-INITIAL_FORMS": str(len(horarios)),
+            "form-MIN_NUM_FORMS": "0",
+            "form-MAX_NUM_FORMS": "1000",
+        }
+        for index, horario in enumerate(horarios):
+            post_data[f"form-{index}-id"] = horario.pk
+            post_data[f"form-{index}-hora_abertura"] = "08:30"
+            post_data[f"form-{index}-hora_fechamento"] = "18:00"
+            if horario.dia_semana != HorarioFuncionamento.DOMINGO:
+                post_data[f"form-{index}-aberto"] = "on"
+
+        response = self.client.post(reverse("horario_funcionamento"), post_data)
+
+        self.assertRedirects(response, reverse("horario_funcionamento"))
+        domingo = HorarioFuncionamento.objects.get(
+            dia_semana=HorarioFuncionamento.DOMINGO
+        )
+        segunda = HorarioFuncionamento.objects.get(
+            dia_semana=HorarioFuncionamento.SEGUNDA
+        )
+        self.assertFalse(domingo.aberto)
+        self.assertEqual(segunda.hora_abertura, time(hour=8, minute=30))
+        self.assertEqual(segunda.hora_fechamento, time(hour=18))
+
+    def test_agendar_page_uses_business_hours_for_available_times(self):
+        data = self.future_date_for_weekday(HorarioFuncionamento.QUARTA)
+        horario = HorarioFuncionamento.objects.get(dia_semana=data.weekday())
+        horario.aberto = True
+        horario.hora_abertura = time(hour=10)
+        horario.hora_fechamento = time(hour=12)
+        horario.save()
+
+        response = self.client.get(
+            reverse("agendar"),
+            {
+                "servico": self.servico.pk,
+                "profissional": self.profissional.pk,
+                "data": data.isoformat(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'value="09:00"')
+        self.assertContains(response, 'value="10:00"')
+        self.assertContains(response, 'value="11:30"')
+        self.assertNotContains(response, 'value="12:00"')
+
+    def test_agendar_page_disables_closed_business_days(self):
+        data = self.future_date_for_weekday(HorarioFuncionamento.QUINTA)
+        horario = HorarioFuncionamento.objects.get(dia_semana=data.weekday())
+        horario.aberto = False
+        horario.save(update_fields=["aberto"])
+
+        response = self.client.get(
+            reverse("agendar"),
+            {
+                "servico": self.servico.pk,
+                "profissional": self.profissional.pk,
+                "data": data.isoformat(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'data-date="{data.isoformat()}"')
+        self.assertContains(response, "calendar-day-disabled")
+        self.assertNotContains(response, f'name="data" value="{data.isoformat()}"')
+
+    def test_manual_booking_outside_business_hours_is_blocked(self):
+        data = self.future_date_for_weekday(HorarioFuncionamento.SEXTA)
+        horario = HorarioFuncionamento.objects.get(dia_semana=data.weekday())
+        horario.aberto = True
+        horario.hora_abertura = time(hour=10)
+        horario.hora_fechamento = time(hour=12)
+        horario.save()
+
+        response = self.client.post(
+            reverse("agendar"),
+            {
+                "servico": self.servico.pk,
+                "profissional": self.profissional.pk,
+                "data": data.isoformat(),
+                "horario": "09:00",
+                "observacoes": "Fora do expediente.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "fora do expediente")
+        self.assertFalse(
+            Agendamento.objects.filter(observacoes="Fora do expediente.").exists()
+        )
+
+    def test_agendamento_model_rejects_outside_business_hours(self):
+        data = self.future_date_for_weekday(HorarioFuncionamento.SABADO)
+        horario = HorarioFuncionamento.objects.get(dia_semana=data.weekday())
+        horario.aberto = True
+        horario.hora_abertura = time(hour=10)
+        horario.hora_fechamento = time(hour=12)
+        horario.save()
+        agendamento = Agendamento(
+            cliente=self.cliente,
+            profissional=self.profissional,
+            servico=self.servico,
+            inicio=timezone.make_aware(datetime.combine(data, time(hour=9))),
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            agendamento.full_clean()
+
+        self.assertIn("fora do expediente", str(error.exception))
+
     def test_agendar_page_shows_database_options_and_free_times(self):
         data = timezone.localdate() + timedelta(days=5)
 
@@ -1053,6 +1175,7 @@ class CorePageSmokeTests(TestCase):
             reverse("profissional_novo"),
             reverse("profissional_editar", args=[self.profissional.pk]),
             reverse("profissional_excluir", args=[self.profissional.pk]),
+            reverse("horario_funcionamento"),
             reverse("agendamento_list"),
             reverse("agendar"),
             reverse("meus_agendamentos"),

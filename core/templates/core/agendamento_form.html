@@ -11,11 +11,12 @@
 </div>
 
 <div class="card">
-  <form method="post">
+  <form method="post" id="admin-appointment-form">
     {% csrf_token %}
     {% if form.non_field_errors %}
       <div class="alert alert-danger">{{ form.non_field_errors }}</div>
     {% endif %}
+    <div class="alert alert-danger" id="admin-appointment-error" hidden></div>
 
     <div class="form-grid">
       {% include "core/_form_field.html" with field=form.cliente only %}
@@ -31,4 +32,75 @@
     </div>
   </form>
 </div>
+
+{{ expediente_frontend|json_script:"business-hours-data" }}
+{{ duracoes_servicos|json_script:"service-durations-data" }}
+<script>
+  const adminAppointmentForm = document.getElementById("admin-appointment-form");
+  const adminAppointmentError = document.getElementById("admin-appointment-error");
+  const businessHours = JSON.parse(document.getElementById("business-hours-data").textContent);
+  const serviceDurations = JSON.parse(document.getElementById("service-durations-data").textContent);
+  const appointmentStartInput = adminAppointmentForm.querySelector("input[name='inicio']");
+  const appointmentServiceInput = adminAppointmentForm.querySelector("select[name='servico']");
+
+  function minutesFromTime(value) {
+    const [hours, minutes] = value.split(":").map(Number);
+    return hours * 60 + minutes;
+  }
+
+  function parseDateTimeLocal(value) {
+    if (!value || !value.includes("T")) return null;
+    const [datePart, timePart] = value.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    return {
+      date: new Date(year, month - 1, day),
+      minutes: minutesFromTime(timePart),
+    };
+  }
+
+  function djangoWeekday(date) {
+    return (date.getDay() + 6) % 7;
+  }
+
+  function validateAdminAppointmentHours() {
+    adminAppointmentError.hidden = true;
+    appointmentStartInput.setCustomValidity("");
+
+    const parsed = parseDateTimeLocal(appointmentStartInput.value);
+    if (!parsed) return true;
+
+    const dayConfig = businessHours[String(djangoWeekday(parsed.date))];
+    const duration = Number(serviceDurations[appointmentServiceInput.value] || 0);
+    const message = "O horário está fora do expediente de funcionamento da empresa.";
+
+    if (!dayConfig || !dayConfig.aberto) {
+      appointmentStartInput.setCustomValidity(message);
+    } else {
+      const opening = minutesFromTime(dayConfig.abertura);
+      const closing = minutesFromTime(dayConfig.fechamento);
+      const finish = parsed.minutes + duration;
+      if (parsed.minutes < opening || finish > closing) {
+        appointmentStartInput.setCustomValidity(message);
+      }
+    }
+
+    if (appointmentStartInput.validationMessage) {
+      adminAppointmentError.textContent = appointmentStartInput.validationMessage;
+      adminAppointmentError.hidden = false;
+      return false;
+    }
+    return true;
+  }
+
+  [appointmentStartInput, appointmentServiceInput].forEach((input) => {
+    input.addEventListener("change", validateAdminAppointmentHours);
+  });
+
+  adminAppointmentForm.addEventListener("submit", (event) => {
+    if (!validateAdminAppointmentHours()) {
+      event.preventDefault();
+      appointmentStartInput.reportValidity();
+    }
+  });
+</script>
 {% endblock %}
