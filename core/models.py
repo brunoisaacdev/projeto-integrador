@@ -62,7 +62,6 @@ class Profissional(models.Model):
         ],
     )
     ativo = models.BooleanField("Ativo", default=True)
-    # Serviços que o profissional pode executar (opcional)
     servicos = models.ManyToManyField(Servico, blank=True, related_name="profissionais")
 
     class Meta:
@@ -253,7 +252,6 @@ class Agendamento(models.Model):
 
     @property
     def fim(self):
-        """Horário de término calculado a partir da duração do serviço."""
         duracao = self.servico.duracao_minutos if self.servico_id else 0
         return self.inicio + timedelta(minutes=duracao)
 
@@ -266,7 +264,6 @@ class Agendamento(models.Model):
         return self.status == self.STATUS_AGENDADO
 
     def clean(self):
-        """Valida expediente da empresa e conflitos do mesmo profissional."""
         if not self.inicio or not self.servico_id or not self.profissional_id:
             return
 

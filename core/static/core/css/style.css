@@ -1,8 +1,3 @@
-/* ============================================================
-   Barbearia Premium - Estilos compartilhados
-   Tema escuro com roxo e azul
-   ============================================================ */
-
 :root {
   --bg: #16121f;
   --bg-soft: #1d1830;
@@ -43,7 +38,6 @@ a {
   text-decoration: none;
 }
 
-/* ---------- Layout com sidebar ---------- */
 .layout {
   display: flex;
   min-height: 100vh;
@@ -136,7 +130,6 @@ a {
   color: var(--muted);
 }
 
-/* ---------- Conteúdo principal ---------- */
 .main {
   flex: 1;
   padding: 28px 36px;
@@ -171,7 +164,6 @@ a {
   gap: 10px;
 }
 
-/* ---------- Botões ---------- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -256,7 +248,6 @@ a {
   border-radius: 8px;
 }
 
-/* ---------- Cards ---------- */
 .card {
   background-color: var(--card);
   border: 1px solid var(--border);
@@ -297,7 +288,6 @@ a {
   padding: 6px 12px;
 }
 
-/* ---------- Grid de estatísticas ---------- */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -343,7 +333,6 @@ a {
   margin-top: 4px;
 }
 
-/* ---------- Gráfico de profissionais ---------- */
 .dashboard-charts-grid {
   display: grid;
   gap: 20px;
@@ -471,7 +460,6 @@ a {
   font-weight: 700;
 }
 
-/* ---------- Tabelas ---------- */
 .table-wrap {
   overflow-x: auto;
 }
@@ -505,7 +493,6 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* ---------- Badges ---------- */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -545,7 +532,6 @@ tbody tr:last-child td {
   color: #cbd5e1;
 }
 
-/* ---------- Formulários ---------- */
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1021,7 +1007,6 @@ textarea {
   }
 }
 
-/* ---------- Filtros ---------- */
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -1034,7 +1019,6 @@ textarea {
   min-width: 160px;
 }
 
-/* ---------- Busca ---------- */
 .search-bar {
   display: flex;
   gap: 10px;
@@ -1046,7 +1030,6 @@ textarea {
   flex: 1;
 }
 
-/* ---------- Estado vazio ---------- */
 .empty-state {
   text-align: center;
   padding: 48px 20px;
@@ -1059,7 +1042,6 @@ textarea {
   opacity: 0.5;
 }
 
-/* ---------- Alertas ---------- */
 .alert {
   padding: 12px 16px;
   border-radius: 10px;
@@ -1110,7 +1092,6 @@ textarea {
   font: inherit;
 }
 
-/* ---------- Login ---------- */
 .login-wrap {
   display: flex;
   min-height: 100vh;
@@ -1202,6 +1183,10 @@ textarea {
   margin-bottom: 18px;
 }
 
+.login-card input {
+  width: 100%;
+}
+
 .login-options {
   display: flex;
   align-items: center;
@@ -1244,7 +1229,6 @@ textarea {
   text-align: center;
 }
 
-/* ---------- Tela dedicada de agendamentos ---------- */
 .appointments-page {
   background:
     radial-gradient(circle at top left, rgba(124, 58, 237, 0.18), transparent 34rem),
@@ -2398,7 +2382,6 @@ textarea {
   padding: 20px 12px;
 }
 
-/* ---------- Listagem de agendamentos com filtros ---------- */
 .schedule-list-page {
   background: var(--bg);
   color: var(--text);
@@ -2478,7 +2461,6 @@ textarea {
   font-size: 13px;
 }
 
-/* ---------- Responsivo ---------- */
 @media (max-width: 992px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);

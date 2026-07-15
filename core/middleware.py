@@ -23,6 +23,10 @@ class ControleAcessoMiddleware:
  
         login = reverse("login")
         cadastro = reverse("cliente_cadastro")
+        password_reset = reverse("password_reset")
+        password_reset_done = reverse("password_reset_done")
+        password_reset_confirm_prefix = "/senha/redefinir/"
+        password_reset_complete = reverse("password_reset_complete")
         agendar = reverse("agendar")
         meus_agendamentos = reverse("meus_agendamentos")
         logout = reverse("logout")
@@ -30,8 +34,17 @@ class ControleAcessoMiddleware:
 
 
         if not usuario.is_authenticated or not usuario.is_active:
-            paginas_publicas = [login, cadastro]
-            if caminho not in paginas_publicas:
+            paginas_publicas = [
+                login,
+                cadastro,
+                password_reset,
+                password_reset_done,
+                password_reset_complete,
+            ]
+            if (
+                caminho not in paginas_publicas
+                and not caminho.startswith(password_reset_confirm_prefix)
+            ):
                 return redirect_to_login(request.get_full_path(), login)
 
 

@@ -55,7 +55,6 @@ MESES_PT = [
 
 
 def is_staff(user):
-    """Somente contas administrativas (is_staff)."""
     return user.is_active and user.is_staff
 
 

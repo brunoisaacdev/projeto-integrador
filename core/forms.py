@@ -17,8 +17,6 @@ from .models import (
 
 
 class BootstrapModelForm(forms.ModelForm):
-    """Aplica classes Bootstrap automaticamente em todos os campos."""
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
@@ -323,8 +321,6 @@ class CancelamentoForm(forms.Form):
 
 
 class AgendamentoFiltroForm(forms.Form):
-    """Filtro por data, cliente ou profissional."""
-
     data = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
