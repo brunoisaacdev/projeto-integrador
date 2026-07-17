@@ -2285,6 +2285,17 @@ textarea {
   font-size: 17px;
 }
 
+.my-bookings-actions {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.my-bookings-actions form {
+  margin: 0;
+}
+
 .my-bookings-empty {
   background: var(--card);
   border: 1px dashed var(--border);
@@ -2461,6 +2472,18 @@ textarea {
   font-size: 13px;
 }
 
+.cancel-reason {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 7px;
+  max-width: 260px;
+}
+
+.cancel-reason strong {
+  color: var(--text);
+}
+
 @media (max-width: 992px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -2633,6 +2656,9 @@ textarea {
     flex-direction: row;
     justify-content: space-between;
     width: 100%;
+  }
+  .my-bookings-actions {
+    align-items: flex-end;
   }
   .appointment-summary .btn,
   .filter-actions .btn {

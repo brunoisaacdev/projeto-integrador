@@ -41,6 +41,11 @@ urlpatterns = [
     path("clientes/cadastro/", views.cliente_cadastro, name="cliente_cadastro"),
     path("agendar/", views.agendar, name="agendar"),
     path("meus-agendamentos/", views.meus_agendamentos, name="meus_agendamentos"),
+    path(
+        "meus-agendamentos/<int:pk>/cancelar/",
+        views.cancelar_meu_agendamento,
+        name="cancelar_meu_agendamento",
+    ),
 
     path("", views.dashboard, name="dashboard"),
 

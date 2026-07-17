@@ -1,10 +1,14 @@
 import calendar
+import logging
+import threading
 from datetime import datetime, time, timedelta
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db import transaction
+from django.core.mail import send_mail
+from django.db import close_old_connections, transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.http import HttpResponseNotAllowed
@@ -52,6 +56,7 @@ MESES_PT = [
     "novembro",
     "dezembro",
 ]
+logger = logging.getLogger(__name__)
 
 
 def is_staff(user):
@@ -99,6 +104,146 @@ def cliente_do_usuario(user):
             cliente.save(update_fields=["usuario", "ativo", "nome", "email"])
 
         return cliente
+
+
+def enviar_email_confirmacao_agendamento(agendamento):
+    email = agendamento.cliente.email
+    if not email:
+        return False
+
+    inicio = timezone.localtime(agendamento.inicio)
+    fim = timezone.localtime(agendamento.fim)
+    observacoes = agendamento.observacoes.strip() if agendamento.observacoes else ""
+    linhas = [
+        f"Ola, {agendamento.cliente.nome}.",
+        "",
+        "Seu agendamento foi confirmado na Premium Barbearia.",
+        "",
+        f"Codigo: #{agendamento.pk}",
+        f"Servico: {agendamento.servico.nome}",
+        f"Profissional: {agendamento.profissional.nome}",
+        f"Data: {inicio:%d/%m/%Y}",
+        f"Horario: {inicio:%H:%M} - {fim:%H:%M}",
+        f"Valor: R$ {agendamento.servico.preco:.2f}",
+    ]
+    if observacoes:
+        linhas.extend(["", f"Observacoes: {observacoes}"])
+    linhas.extend(
+        [
+            "",
+            "Para acompanhar ou cancelar seus horarios, acesse a area Meus agendamentos.",
+            "",
+            "𝗙𝗲𝗶𝘁𝗼 𝗽𝗼𝗿 𝗜𝗦𝗔𝗔𝗖 𝗠𝗗𝗠 𝗲 𝗚𝗨𝗜𝗟𝗛𝗘𝗥𝗠𝗘 𝗗𝗢 𝗔𝗜𝗥𝗦𝗢𝗙𝗧",
+        ]
+    )
+
+    try:
+        send_mail(
+            "Agendamento confirmado - Premium Barbearia",
+            "\n".join(linhas),
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception("Falha ao enviar e-mail do agendamento %s.", agendamento.pk)
+        return False
+    return True
+
+
+def enviar_email_confirmacao_agendamento_async(agendamento):
+    if not agendamento.cliente.email:
+        return False
+
+    def tarefa():
+        close_old_connections()
+        try:
+            agendamento_atualizado = Agendamento.objects.select_related(
+                "cliente",
+                "profissional",
+                "servico",
+            ).get(pk=agendamento.pk)
+            enviar_email_confirmacao_agendamento(agendamento_atualizado)
+        except Agendamento.DoesNotExist:
+            logger.warning(
+                "Agendamento %s nao encontrado para envio de e-mail.",
+                agendamento.pk,
+            )
+        finally:
+            close_old_connections()
+
+    transaction.on_commit(
+        lambda: threading.Thread(target=tarefa, daemon=True).start()
+    )
+    return True
+
+
+def enviar_email_conclusao_agendamento(agendamento):
+    email = agendamento.cliente.email
+    if not email:
+        return False
+
+    inicio = timezone.localtime(agendamento.inicio)
+    fim = timezone.localtime(agendamento.fim)
+    linhas = [
+        f"Ola, {agendamento.cliente.nome}.",
+        "",
+        "Seu atendimento na Premium Barbearia foi concluido.",
+        "",
+        f"Codigo: #{agendamento.pk}",
+        f"Servico: {agendamento.servico.nome}",
+        f"Profissional: {agendamento.profissional.nome}",
+        f"Data: {inicio:%d/%m/%Y}",
+        f"Horario: {inicio:%H:%M} - {fim:%H:%M}",
+        f"Valor: R$ {agendamento.servico.preco:.2f}",
+        "",
+        "Obrigado pela preferencia.",
+        "",
+        "𝗙𝗲𝗶𝘁𝗼 𝗽𝗼𝗿 𝗜𝗦𝗔𝗔𝗖 𝗠𝗗𝗠 𝗲 𝗚𝗨𝗜𝗟𝗛𝗘𝗥𝗠𝗘 𝗗𝗢 𝗔𝗜𝗥𝗦𝗢𝗙𝗧",
+    ]
+
+    try:
+        send_mail(
+            "Atendimento concluido - Premium Barbearia",
+            "\n".join(linhas),
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception(
+            "Falha ao enviar e-mail de conclusao do agendamento %s.",
+            agendamento.pk,
+        )
+        return False
+    return True
+
+
+def enviar_email_conclusao_agendamento_async(agendamento):
+    if not agendamento.cliente.email:
+        return False
+
+    def tarefa():
+        close_old_connections()
+        try:
+            agendamento_atualizado = Agendamento.objects.select_related(
+                "cliente",
+                "profissional",
+                "servico",
+            ).get(pk=agendamento.pk)
+            enviar_email_conclusao_agendamento(agendamento_atualizado)
+        except Agendamento.DoesNotExist:
+            logger.warning(
+                "Agendamento %s nao encontrado para envio de e-mail de conclusao.",
+                agendamento.pk,
+            )
+        finally:
+            close_old_connections()
+
+    transaction.on_commit(
+        lambda: threading.Thread(target=tarefa, daemon=True).start()
+    )
+    return True
 
 
 def profissionais_disponiveis_para(servico):
@@ -380,6 +525,13 @@ def agendar(request):
         }
         if form.is_valid() and horario_valido:
             agendamento = form.save()
+            if enviar_email_confirmacao_agendamento_async(agendamento):
+                messages.success(request, "Enviaremos os detalhes do agendamento por e-mail.")
+            else:
+                messages.warning(
+                    request,
+                    "Agendamento confirmado, mas o cliente não possui e-mail cadastrado.",
+                )
             return redirect(f'{reverse("agendar")}?sucesso={agendamento.pk}')
         if not horario_valido:
             form.add_error(
@@ -463,12 +615,49 @@ def meus_agendamentos(request):
         "core/meus_agendamentos.html",
         {
             "agendamentos": agendamentos,
+            "agora": agora,
             "cliente": cliente,
             "filtro_status": filtro_status,
             "total_cancelados": total_cancelados,
             "total_concluidos": total_concluidos,
             "total_proximos": total_proximos,
         },
+    )
+
+
+@login_required
+def cancelar_meu_agendamento(request, pk):
+    if request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
+
+    cliente = cliente_do_usuario(request.user)
+    agendamento = get_object_or_404(
+        Agendamento,
+        pk=pk,
+        cliente=cliente,
+    )
+
+    if agendamento.status != Agendamento.STATUS_AGENDADO:
+        messages.info(request, "Somente agendamentos ativos podem ser cancelados.")
+        return redirect("meus_agendamentos")
+
+    if agendamento.inicio <= timezone.now():
+        messages.error(
+            request,
+            "Não é possível cancelar um agendamento que já passou da data e hora marcadas.",
+        )
+        return redirect("meus_agendamentos")
+
+    form = CancelamentoForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        agendamento.cancelar(form.cleaned_data["motivo"])
+        messages.warning(request, "Agendamento cancelado com sucesso.")
+        return redirect("meus_agendamentos")
+
+    return render(
+        request,
+        "core/meu_agendamento_cancelar.html",
+        {"form": form, "agendamento": agendamento},
     )
 
 
@@ -864,7 +1053,16 @@ def agendamento_form(request, pk=None):
 
     form = AgendamentoForm(request.POST or None, instance=agendamento)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        novo_agendamento = agendamento is None
+        agendamento_salvo = form.save()
+        if novo_agendamento:
+            if enviar_email_confirmacao_agendamento_async(agendamento_salvo):
+                messages.success(request, "E-mail de confirmação será enviado ao cliente.")
+            else:
+                messages.warning(
+                    request,
+                    "Agendamento salvo, mas o cliente não possui e-mail cadastrado.",
+                )
         messages.success(request, "Agendamento salvo com sucesso.")
         return redirect("agendamento_list")
     return render(
@@ -881,7 +1079,10 @@ def agendamento_form(request, pk=None):
 
 @login_required
 def agendamento_cancelar(request, pk):
-    agendamento = get_object_or_404(Agendamento, pk=pk)
+    agendamento = get_object_or_404(
+        Agendamento.objects.select_related("cliente", "profissional", "servico"),
+        pk=pk,
+    )
     if not agendamento.pode_ser_alterado:
         messages.info(
             request,
@@ -907,10 +1108,23 @@ def agendamento_concluir(request, pk):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
-    agendamento = get_object_or_404(Agendamento, pk=pk)
+    agendamento = get_object_or_404(
+        Agendamento.objects.select_related("cliente", "profissional", "servico"),
+        pk=pk,
+    )
     if agendamento.status == Agendamento.STATUS_AGENDADO:
         agendamento.concluir()
-        messages.success(request, "Atendimento marcado como concluído.")
+        if enviar_email_conclusao_agendamento_async(agendamento):
+            messages.success(
+                request,
+                "Atendimento marcado como concluído. E-mail será enviado ao cliente.",
+            )
+        else:
+            messages.warning(
+                request,
+                "Atendimento marcado como concluído, mas o cliente não possui e-mail cadastrado.",
+            )
     else:
         messages.info(request, "Somente atendimentos agendados podem ser concluídos.")
     return redirect("agendamento_list")
+

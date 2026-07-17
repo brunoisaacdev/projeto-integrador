@@ -315,8 +315,15 @@ class AgendamentoClienteForm(BootstrapModelForm):
 class CancelamentoForm(forms.Form):
     motivo = forms.CharField(
         label="Motivo do cancelamento",
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        max_length=255,
+        required=True,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "class": "form-control",
+                "placeholder": "Informe o motivo do cancelamento",
+            }
+        ),
     )
 
 

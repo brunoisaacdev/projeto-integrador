@@ -62,6 +62,11 @@
               <td>
                 {% if agendamento.status == "cancelado" %}
                   <span class="badge badge-danger">{{ agendamento.get_status_display }}</span>
+                  {% if agendamento.motivo_cancelamento %}
+                    <div class="cancel-reason">
+                      <strong>Motivo:</strong> {{ agendamento.motivo_cancelamento }}
+                    </div>
+                  {% endif %}
                 {% elif agendamento.status == "concluido" %}
                   <span class="badge badge-success">{{ agendamento.get_status_display }}</span>
                 {% else %}

@@ -29,6 +29,7 @@ class ControleAcessoMiddleware:
         password_reset_complete = reverse("password_reset_complete")
         agendar = reverse("agendar")
         meus_agendamentos = reverse("meus_agendamentos")
+        cancelar_meu_agendamento_prefix = "/meus-agendamentos/"
         logout = reverse("logout")
         usuario = request.user
 
@@ -50,7 +51,13 @@ class ControleAcessoMiddleware:
 
         elif not usuario.is_staff:
             paginas_do_cliente = [agendar, meus_agendamentos, logout]
-            if caminho not in paginas_do_cliente:
+            if (
+                caminho not in paginas_do_cliente
+                and not (
+                    caminho.startswith(cancelar_meu_agendamento_prefix)
+                    and caminho.endswith("/cancelar/")
+                )
+            ):
                 return redirect(agendar)
 
         return self.get_response(request)

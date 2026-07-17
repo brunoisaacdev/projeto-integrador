@@ -1,60 +1,87 @@
-Projeto Integrador
+# Projeto Integrador - Premium Barbearia
 
-Aplicacao Django para agendamentos da barbearia.
+Sistema web desenvolvido em Django para gerenciar os agendamentos de uma barbearia. O projeto centraliza o cadastro de clientes, servicos, profissionais, horarios de funcionamento e atendimentos, reduzindo controles manuais e facilitando a organizacao da rotina da equipe.
 
-## Como rodar
+## Objetivo
 
-No PowerShell, dentro da pasta do projeto:
+O sistema foi criado para tornar o processo de agendamento mais simples, claro e automatizado. O cliente consegue marcar e acompanhar seus horarios, enquanto a administracao da barbearia controla a agenda, os cadastros e o status dos atendimentos em um painel interno.
 
-```powershell
-.\venv\Scripts\python.exe manage.py runserver
-```
+## Principais funcionalidades
 
-Depois acesse:
+- Cadastro de clientes com nome, e-mail, telefone, observacoes e vinculo com usuario do sistema.
+- Cadastro de servicos com descricao, preco, duracao e status ativo/inativo.
+- Cadastro de profissionais com especialidade, contato, foto e servicos atendidos.
+- Controle de horarios de funcionamento por dia da semana.
+- Registro de fechamentos em datas especificas, como feriados ou dias sem atendimento.
+- Agendamento online para clientes autenticados.
+- Listagem de horarios disponiveis considerando servico, profissional, expediente e agenda ocupada.
+- Area "Meus agendamentos" para o cliente acompanhar horarios agendados, concluidos e cancelados.
+- Cancelamento de agendamento pelo cliente com motivo obrigatorio.
+- Painel administrativo para gerenciar clientes, servicos, profissionais e agendamentos.
+- Conclusao de atendimentos pelo administrador.
+- Cancelamento administrativo com registro do motivo.
+- Recuperacao de senha por e-mail.
+- Envio de e-mails automaticos de confirmacao de agendamento e conclusao de atendimento.
 
-```text
-http://127.0.0.1:8000/
-```
+## Perfis de acesso
 
-Login administrativo cadastrado no banco atual:
+### Cliente
 
-```text
-E-mail: admin@example.com
-Senha: admin123
-```
+O cliente acessa uma area simplificada, voltada para o agendamento e acompanhamento dos proprios horarios. Ele pode escolher servico, profissional, data e horario disponivel, consultar seus agendamentos e cancelar um horario futuro informando o motivo.
 
-## Se o ambiente precisar ser recriado
+### Administrador
 
-```powershell
-python -m venv venv
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
-.\venv\Scripts\python.exe manage.py migrate
-.\venv\Scripts\python.exe manage.py runserver
-```
+O administrador acessa o painel de gestao da barbearia. Nesse ambiente, e possivel visualizar indicadores, cadastrar e editar informacoes essenciais, acompanhar a agenda, concluir atendimentos e cancelar agendamentos quando necessario.
 
-O projeto le as variaveis de banco do arquivo `.env`.
+## Regras de agendamento
 
-## Recuperacao de senha por e-mail
+O sistema possui validacoes para evitar inconsistencias na agenda:
 
-O fluxo de recuperacao esta em:
+- Nao permite criar agendamentos em data ou hora passada.
+- Nao permite conflito de horario para o mesmo profissional.
+- Verifica se o horario escolhido esta dentro do expediente de funcionamento.
+- Desconsidera horarios cancelados ao calcular disponibilidade.
+- Respeita datas de fechamento cadastradas.
+- Calcula o horario final do atendimento com base na duracao do servico.
 
-```text
-http://127.0.0.1:8000/senha/esqueci/
-```
+## Cancelamentos
 
-Em desenvolvimento, se nenhuma configuracao SMTP for informada, o Django mostra o e-mail de recuperacao no terminal do `runserver`.
+Os cancelamentos registram data, status e motivo. Quando o cliente cancela um horario, o motivo fica visivel para o administrador na tela de agendamentos. Quando o administrador cancela, o motivo fica visivel para o cliente em "Meus agendamentos".
 
-Para enviar e-mails de verdade, adicione ao `.env`:
+O cliente so pode cancelar agendamentos ativos e que ainda nao passaram da data e hora marcada.
 
-```env
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.seu-provedor.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=seu-usuario-smtp
-EMAIL_HOST_PASSWORD=sua-senha-smtp
-EMAIL_USE_TLS=True
-EMAIL_USE_SSL=False
-DEFAULT_FROM_EMAIL=Premium Barbearia <no-reply@seudominio.com>
-```
+## Notificacoes por e-mail
 
-Observacao: este projeto usa o Supabase como banco Postgres, mas o login e a senha sao do Django. O e-mail nativo de recuperacao do Supabase Auth so funciona para usuarios cadastrados no Supabase Auth (`auth.users`). Para este projeto, use SMTP no Django ou migre a autenticacao inteira para Supabase Auth.
+O projeto utiliza envio de e-mails para melhorar a comunicacao com o cliente:
+
+- recuperacao de senha;
+- confirmacao de novo agendamento;
+- aviso de atendimento concluido.
+
+Os e-mails de agendamento e conclusao sao enviados em segundo plano para evitar demora no carregamento das telas.
+
+## Tecnologias utilizadas
+
+- Python
+- Django
+- PostgreSQL
+- Supabase como banco de dados hospedado
+- HTML, CSS e JavaScript
+- SMTP para envio de e-mails
+
+## Estrutura geral
+
+O projeto possui uma aplicacao principal chamada `core`, onde ficam os modelos, formularios, views, rotas, templates e arquivos estaticos. Os principais modelos do sistema sao:
+
+- `Cliente`
+- `Servico`
+- `Profissional`
+- `HorarioFuncionamento`
+- `FechamentoFuncionamento`
+- `Agendamento`
+
+Essa estrutura permite separar as responsabilidades do sistema e manter as regras principais concentradas no backend.
+
+## Resultado esperado
+
+Com o sistema, a barbearia ganha uma rotina de atendimento mais organizada, com menos risco de conflito de horarios, melhor controle sobre os profissionais e uma experiencia mais clara para o cliente durante todo o ciclo do agendamento.
