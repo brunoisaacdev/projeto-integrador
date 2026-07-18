@@ -24,17 +24,40 @@ def load_env_file(path):
 load_env_file(BASE_DIR / ".env")
 
 
+def env_list(name, default=()):
+    value = os.getenv(name)
+    if not value:
+        return list(default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 def env_bool(name, default=False):
     value = os.getenv(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
-SECRET_KEY = 'django-insecure-+-zi*qdy6vy2!1#gf^nj(&8vdfh%wfv-=zr99xe(+(8)%3zk3h'
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    os.getenv("SECRET_KEY", "django-insecure-+-zi*qdy6vy2!1#gf^nj(&8vdfh%wfv-=zr99xe(+(8)%3zk3h"),
+)
 
-DEBUG = True
+DEBUG = env_bool("DEBUG", default=not env_bool("VERCEL"))
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver"]
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "testserver",
+    ".vercel.app",
+    *env_list("ALLOWED_HOSTS"),
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.vercel.app",
+    *env_list("CSRF_TRUSTED_ORIGINS"),
+]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 
@@ -117,6 +140,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 

@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}
+{% load static %}
 
 {% block title %}{% if profissional %}Editar profissional{% else %}Novo profissional{% endif %} | Premium Barbearia{% endblock %}
 
@@ -23,7 +24,17 @@
       {% include "core/_form_field.html" with field=form.telefone only %}
       {% include "core/_form_field.html" with field=form.email only %}
       <div class="form-group full">
-        {% if profissional and profissional.foto %}
+        {% if profissional and profissional.foto_estatica %}
+          {% static profissional.foto_estatica as foto_estatica %}
+          <div class="professional-photo-preview">
+            <img
+              src="{{ foto_estatica }}"
+              alt="Foto de {{ profissional.nome }}"
+              width="72"
+              height="72"
+            />
+          </div>
+        {% elif profissional and profissional.foto %}
           <div class="professional-photo-preview">
             <img
               src="{{ profissional.foto.url }}"

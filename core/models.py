@@ -72,6 +72,17 @@ class Profissional(models.Model):
     def __str__(self):
         return self.nome
 
+    @property
+    def foto_estatica(self):
+        nome = self.nome.strip().lower()
+        fotos = {
+            "bruno": "core/css/img/Isaac barber.png",
+            "isaac": "core/css/img/Isaac barber.png",
+            "guilherme": "core/css/img/Gui barber.png",
+            "gui": "core/css/img/Gui barber.png",
+        }
+        return fotos.get(nome, "")
+
 
 class HorarioFuncionamento(models.Model):
     SEGUNDA = 0

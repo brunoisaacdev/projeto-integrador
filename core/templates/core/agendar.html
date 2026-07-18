@@ -115,7 +115,17 @@
               <label class="professional-option {% if profissional_selecionado and profissional.pk == profissional_selecionado.pk %}active{% endif %}">
                 <input data-refresh type="radio" name="profissional" value="{{ profissional.pk }}" hidden {% if profissional_selecionado and profissional.pk == profissional_selecionado.pk %}checked{% endif %} required />
                 <span class="professional-avatar">
-                  {% if profissional.foto %}
+                  {% if profissional.foto_estatica %}
+                    {% static profissional.foto_estatica as foto_estatica %}
+                    <img
+                      class="professional-avatar-image"
+                      src="{{ foto_estatica }}"
+                      alt="Foto de {{ profissional.nome }}"
+                      width="56"
+                      height="56"
+                      loading="lazy"
+                    />
+                  {% elif profissional.foto %}
                     <img
                       class="professional-avatar-image"
                       src="{{ profissional.foto.url }}"
