@@ -60,7 +60,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+<<<<<<< HEAD
 
+=======
+>>>>>>> e5b12e4077ede0568dafcf0e1e931a1ff243b165
 
 
 INSTALLED_APPS = [
