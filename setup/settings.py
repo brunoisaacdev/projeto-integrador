@@ -39,44 +39,27 @@ def env_bool(name, default=False):
 
 SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
-<<<<<<< HEAD
     os.getenv("SECRET_KEY", "django-insecure-+-zi*qdy6vy2!1#gf^nj(&8vdfh%wfv-=zr99xe(+(8)%3zk3h"),
 )
 
 DEBUG = env_bool("DEBUG", default=not env_bool("VERCEL"))
-=======
-    "django-insecure-+-zi*qdy6vy2!1#gf^nj(&8vdfh%wfv-=zr99xe(+(8)%3zk3h",
-)
-
-DEBUG = os.getenv("DEBUG", "False").lower() in {"1", "true", "yes", "on"}
->>>>>>> d452c60e595773391001bcbcf7337ef93e02ac83
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "testserver",
-<<<<<<< HEAD
+    "projeto-integrador-t5bm.vercel.app",
     ".vercel.app",
     *env_list("ALLOWED_HOSTS"),
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://projeto-integrador-t5bm.vercel.app",
     "https://*.vercel.app",
     *env_list("CSRF_TRUSTED_ORIGINS"),
 ]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-=======
-    "projeto-integrador-t5bm.vercel.app",
-    ".vercel.app",
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://projeto-integrador-t5bm.vercel.app",
-    "https://*.vercel.app",
-]
->>>>>>> d452c60e595773391001bcbcf7337ef93e02ac83
-
 
 
 INSTALLED_APPS = [
