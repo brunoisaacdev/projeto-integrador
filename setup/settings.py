@@ -30,11 +30,25 @@ def env_bool(name, default=False):
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
-SECRET_KEY = 'django-insecure-+-zi*qdy6vy2!1#gf^nj(&8vdfh%wfv-=zr99xe(+(8)%3zk3h'
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-+-zi*qdy6vy2!1#gf^nj(&8vdfh%wfv-=zr99xe(+(8)%3zk3h",
+)
 
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False").lower() in {"1", "true", "yes", "on"}
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver"]
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "testserver",
+    "projeto-integrador-t5bm.vercel.app",
+    ".vercel.app",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://projeto-integrador-t5bm.vercel.app",
+    "https://*.vercel.app",
+]
 
 
 
@@ -117,6 +131,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
