@@ -1187,6 +1187,58 @@ textarea {
   width: 100%;
 }
 
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input-wrap input {
+  padding-right: 52px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0;
+  width: 34px;
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.password-toggle-icon {
+  fill: none;
+  height: 20px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 20px;
+}
+
+.password-toggle-eye-off {
+  display: none;
+}
+
+.password-toggle.showing-password .password-toggle-eye {
+  display: none;
+}
+
+.password-toggle.showing-password .password-toggle-eye-off {
+  display: block;
+}
+
 .login-options {
   display: flex;
   align-items: center;

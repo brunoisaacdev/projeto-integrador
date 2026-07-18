@@ -5,6 +5,7 @@ from datetime import datetime, time, timedelta
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.mail import send_mail
@@ -695,11 +696,12 @@ def cliente_cadastro(request):
     )
 
     if request.method == "POST" and form.is_valid():
-        form.save()
+        cliente = form.save()
         messages.success(request, "Cliente cadastrado com sucesso.")
         if allow_staff_fields:
             return redirect("dashboard")
-        return redirect("login")
+        login(request, cliente.usuario)
+        return redirect("agendar")
 
     return render(
         request,
@@ -1127,4 +1129,3 @@ def agendamento_concluir(request, pk):
     else:
         messages.info(request, "Somente atendimentos agendados podem ser concluídos.")
     return redirect("agendamento_list")
-
