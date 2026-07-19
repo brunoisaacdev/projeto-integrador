@@ -134,7 +134,7 @@ def enviar_email_confirmacao_agendamento(agendamento):
             "",
             "Para acompanhar ou cancelar seus horarios, acesse a area Meus agendamentos.",
             "",
-            "𝗙𝗲𝗶𝘁𝗼 𝗽𝗼𝗿 𝗜𝗦𝗔𝗔𝗖 𝗠𝗗𝗠 𝗲 𝗚𝗨𝗜𝗟𝗛𝗘𝗥𝗠𝗘 𝗗𝗢 𝗔𝗜𝗥𝗦𝗢𝗙𝗧",
+            "𝙁𝙚𝙞𝙩𝙤 𝙥𝙤𝙧 𝘽𝙍𝙐𝙉𝙊 𝙄𝙎𝘼𝘼𝘾 𝙚 𝙂𝙐𝙄𝙇𝙃𝙀𝙍𝙈𝙀 𝙃𝙀𝙍𝙉𝘼𝙉𝘿𝙀𝙕",
         ]
     )
 
@@ -200,7 +200,7 @@ def enviar_email_conclusao_agendamento(agendamento):
         "",
         "Obrigado pela preferencia.",
         "",
-        "𝗙𝗲𝗶𝘁𝗼 𝗽𝗼𝗿 𝗜𝗦𝗔𝗔𝗖 𝗠𝗗𝗠 𝗲 𝗚𝗨𝗜𝗟𝗛𝗘𝗥𝗠𝗘 𝗗𝗢 𝗔𝗜𝗥𝗦𝗢𝗙𝗧",
+        "𝙁𝙚𝙞𝙩𝙤 𝙥𝙤𝙧 𝘽𝙍𝙐𝙉𝙊 𝙄𝙎𝘼𝘼𝘾 𝙚 𝙂𝙐𝙄𝙇𝙃𝙀𝙍𝙈𝙀 𝙃𝙀𝙍𝙉𝘼𝙉𝘿𝙀𝙕",
     ]
 
     try:
