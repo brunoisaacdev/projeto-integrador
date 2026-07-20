@@ -247,6 +247,60 @@ def enviar_email_conclusao_agendamento_async(agendamento):
     return True
 
 
+def enviar_email_confirmacao_cadastro(cliente):
+    email = cliente.email
+    if not email:
+        return False
+
+    linhas = [
+        f"Ola, {cliente.nome}.",
+        "",
+        "Seu cadastro foi realizado com sucesso na Premium Barbearia.",
+        "",
+        "Agora voce ja pode acessar o sistema para agendar e acompanhar seus horarios.",
+        "",
+        "Obrigado por se cadastrar.",
+        "",
+        "𝙁𝙚𝙞𝙩𝙤 𝙥𝙤𝙧 𝘽𝙍𝙐𝙉𝙊 𝙄𝙎𝘼𝘼𝘾 𝙚 𝙂𝙐𝙄𝙇𝙃𝙀𝙍𝙈𝙀 𝙃𝙀𝙍𝙉𝘼𝙉𝘿𝙀𝙕",
+    ]
+
+    try:
+        send_mail(
+            "Cadastro realizado com sucesso - Premium Barbearia",
+            "\n".join(linhas),
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception("Falha ao enviar e-mail de cadastro do cliente %s.", cliente.pk)
+        return False
+    return True
+
+
+def enviar_email_confirmacao_cadastro_async(cliente):
+    if not cliente.email:
+        return False
+
+    def tarefa():
+        close_old_connections()
+        try:
+            cliente_atualizado = Cliente.objects.get(pk=cliente.pk)
+            enviar_email_confirmacao_cadastro(cliente_atualizado)
+        except Cliente.DoesNotExist:
+            logger.warning(
+                "Cliente %s nao encontrado para envio de e-mail de cadastro.",
+                cliente.pk,
+            )
+        finally:
+            close_old_connections()
+
+    transaction.on_commit(
+        lambda: threading.Thread(target=tarefa, daemon=True).start()
+    )
+    return True
+
+
 def profissionais_disponiveis_para(servico):
     if servico is None:
         return Profissional.objects.none()
@@ -697,6 +751,7 @@ def cliente_cadastro(request):
 
     if request.method == "POST" and form.is_valid():
         cliente = form.save()
+        enviar_email_confirmacao_cadastro_async(cliente)
         messages.success(request, "Cliente cadastrado com sucesso.")
         if allow_staff_fields:
             return redirect("dashboard")
